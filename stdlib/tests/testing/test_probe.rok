@@ -1,0 +1,107 @@
+// Tests for rockit.testing.probe
+// Verifies assertions work correctly in recording mode
+import rockit.testing.probe
+
+// == Basic Assertions ========================================================
+
+@Test fun testAssertTrue() {
+    assertTrue(true)
+    assertTrue(1 == 1)
+}
+
+@Test fun testAssertFalse() {
+    assertFalse(false)
+    assertFalse(1 == 2)
+}
+
+@Test fun testAssert() {
+    assert(true)
+    assert(2 + 2 == 4)
+}
+
+// == Equality Assertions =====================================================
+
+@Test fun testAssertEquals() {
+    assertEquals(42, 42)
+    assertEquals(0, 0)
+    assertEquals(-1, -1)
+}
+
+@Test fun testAssertEqualsStr() {
+    assertEqualsStr("hello", "hello")
+    assertEqualsStr("", "")
+}
+
+@Test fun testAssertNotEquals() {
+    assertNotEquals(1, 2)
+    assertNotEquals(0, -1)
+}
+
+@Test fun testAssertEqualsBool() {
+    assertEqualsBool(true, true)
+    assertEqualsBool(false, false)
+}
+
+@Test fun testAssertNotEqualsStr() {
+    assertNotEqualsStr("a", "b")
+    assertNotEqualsStr("", "x")
+}
+
+// == Comparison Assertions ===================================================
+
+@Test fun testAssertGreaterThan() {
+    assertGreaterThan(10, 5)
+    assertGreaterThan(1, 0)
+}
+
+@Test fun testAssertLessThan() {
+    assertLessThan(5, 10)
+    assertLessThan(0, 1)
+}
+
+@Test fun testAssertGreaterThanOrEqual() {
+    assertGreaterThanOrEqual(10, 10)
+    assertGreaterThanOrEqual(10, 5)
+}
+
+@Test fun testAssertLessThanOrEqual() {
+    assertLessThanOrEqual(5, 5)
+    assertLessThanOrEqual(5, 10)
+}
+
+@Test fun testAssertBetween() {
+    assertBetween(5, 1, 10)
+    assertBetween(1, 1, 10)
+    assertBetween(10, 1, 10)
+}
+
+// == String Assertions =======================================================
+
+@Test fun testAssertStringContains() {
+    assertStringContains("hello world", "world")
+    assertStringContains("abc", "abc")
+}
+
+@Test fun testAssertStartsWith() {
+    assertStartsWith("hello world", "hello")
+    assertStartsWith("abc", "abc")
+}
+
+@Test fun testAssertEndsWith() {
+    assertEndsWith("hello world", "world")
+    assertEndsWith("abc", "abc")
+}
+
+@Test fun testAssertStringEmpty() {
+    assertStringEmpty("")
+}
+
+@Test fun testAssertStringNotEmpty() {
+    assertStringNotEmpty("x")
+    assertStringNotEmpty("hello")
+}
+
+@Test fun testAssertStringLength() {
+    assertStringLength("hello", 5)
+    assertStringLength("", 0)
+}

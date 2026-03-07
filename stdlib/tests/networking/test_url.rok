@@ -1,0 +1,165 @@
+// Tests for rockit.networking.url
+import rockit.testing.probe
+import rockit.networking.url
+
+// == URL Parsing =============================================================
+
+@Test fun testParseFullUrl() {
+    val u = urlParse("https://example.com:8080/path?q=1#frag")
+    assertEqualsStr("https", urlScheme(u))
+    assertEqualsStr("example.com", urlHost(u))
+    assertEquals(8080, urlPort(u))
+    assertEqualsStr("/path", urlPath(u))
+    assertEqualsStr("q=1", urlQuery(u))
+    assertEqualsStr("frag", urlFragment(u))
+}
+
+@Test fun testParseSimpleUrl() {
+    val u = urlParse("http://example.com/index.html")
+    assertEqualsStr("http", urlScheme(u))
+    assertEqualsStr("example.com", urlHost(u))
+    assertEqualsStr("/index.html", urlPath(u))
+}
+
+@Test fun testParseNoPath() {
+    val u = urlParse("http://example.com")
+    assertEqualsStr("example.com", urlHost(u))
+}
+
+@Test fun testParseWithQuery() {
+    val u = urlParse("http://api.com/search?q=hello&lang=en")
+    assertEqualsStr("/search", urlPath(u))
+    assertEqualsStr("q=hello&lang=en", urlQuery(u))
+}
+
+@Test fun testParsePortOnly() {
+    val u = urlParse("http://localhost:3000")
+    assertEqualsStr("localhost", urlHost(u))
+    assertEquals(3000, urlPort(u))
+}
+
+// == Component Accessors =====================================================
+
+@Test fun testAccessorsWithNulls() {
+    val empty = mapCreate()
+    assertEqualsStr("", urlScheme(empty))
+    assertEqualsStr("", urlHost(empty))
+    assertEquals(0, urlPort(empty))
+    assertEqualsStr("", urlPath(empty))
+    assertEqualsStr("", urlQuery(empty))
+    assertEqualsStr("", urlFragment(empty))
+}
+
+// == Query Parameter Parsing =================================================
+
+@Test fun testQueryParams() {
+    val params = urlQueryParams("name=Rockit&version=1&active=true")
+    assertEqualsStr("Rockit", toString(mapGet(params, "name")))
+    assertEqualsStr("1", toString(mapGet(params, "version")))
+    assertEqualsStr("true", toString(mapGet(params, "active")))
+}
+
+@Test fun testQueryParamsEmpty() {
+    val params = urlQueryParams("")
+    assertEquals(0, listSize(mapKeys(params)))
+}
+
+@Test fun testQueryParamSingle() {
+    assertEqualsStr("hello", urlQueryParam("q=hello&lang=en", "q"))
+    assertEqualsStr("en", urlQueryParam("q=hello&lang=en", "lang"))
+}
+
+@Test fun testQueryParamMissing() {
+    assertEqualsStr("", urlQueryParam("q=hello", "missing"))
+}
+
+@Test fun testQueryParamEncoded() {
+    val params = urlQueryParams("name=hello%20world")
+    assertEqualsStr("hello world", toString(mapGet(params, "name")))
+}
+
+// == Percent-Encoding ========================================================
+
+@Test fun testUrlEncode() {
+    assertEqualsStr("hello%20world", urlEncode("hello world"))
+    assertEqualsStr("abc", urlEncode("abc"))
+}
+
+@Test fun testUrlDecode() {
+    assertEqualsStr("hello world", urlDecode("hello%20world"))
+    assertEqualsStr("hello world", urlDecode("hello+world"))
+    assertEqualsStr("abc", urlDecode("abc"))
+}
+
+@Test fun testUrlEncodeDecodeRoundtrip() {
+    val original = "a b&c=d"
+    assertEqualsStr(original, urlDecode(urlEncode(original)))
+}
+
+@Test fun testUrlEncodeSpecialChars() {
+    val encoded = urlEncode("a&b=c?d")
+    assertStringContains(encoded, "%26")
+    assertStringContains(encoded, "%3D")
+    assertStringContains(encoded, "%3F")
+}
+
+// == URL Reconstruction ======================================================
+
+@Test fun testUrlToString() {
+    val u = urlParse("https://example.com:8080/path?q=1#frag")
+    val reconstructed = urlToString(u)
+    assertEqualsStr("https://example.com:8080/path?q=1#frag", reconstructed)
+}
+
+@Test fun testUrlToStringSimple() {
+    val u = urlParse("http://example.com/")
+    assertEqualsStr("http://example.com/", urlToString(u))
+}
+
+// == urlIsUnreserved (Bool return type) ======================================
+
+@Test fun testUrlIsUnreservedLetters() {
+    assertTrue(urlIsUnreserved(65))  // 'A'
+    assertTrue(urlIsUnreserved(122)) // 'z'
+}
+
+@Test fun testUrlIsUnreservedDigits() {
+    assertTrue(urlIsUnreserved(48))  // '0'
+    assertTrue(urlIsUnreserved(57))  // '9'
+}
+
+@Test fun testUrlIsUnreservedSpecial() {
+    assertTrue(urlIsUnreserved(45))  // '-'
+    assertTrue(urlIsUnreserved(46))  // '.'
+    assertTrue(urlIsUnreserved(95))  // '_'
+    assertTrue(urlIsUnreserved(126)) // '~'
+}
+
+@Test fun testUrlIsUnreservedFalse() {
+    assertFalse(urlIsUnreserved(32))  // space
+    assertFalse(urlIsUnreserved(38))  // '&'
+    assertFalse(urlIsUnreserved(61))  // '='
+}
+
+// == Convenience Extractors ==================================================
+
+@Test fun testUrlExtractScheme() {
+    assertEqualsStr("https", urlExtractScheme("https://example.com"))
+    assertEqualsStr("http", urlExtractScheme("example.com"))
+}
+
+@Test fun testUrlExtractHost() {
+    assertEqualsStr("example.com", urlExtractHost("https://example.com/path"))
+    assertEqualsStr("localhost", urlExtractHost("http://localhost:3000"))
+}
+
+@Test fun testUrlExtractPort() {
+    assertEquals(8080, urlExtractPort("http://example.com:8080/path"))
+    assertEquals(80, urlExtractPort("http://example.com/path"))
+    assertEquals(443, urlExtractPort("https://example.com/path"))
+}
+
+@Test fun testUrlExtractPath() {
+    assertEqualsStr("/path/to/resource", urlExtractPath("http://example.com/path/to/resource"))
+    assertEqualsStr("/", urlExtractPath("http://example.com"))
+}

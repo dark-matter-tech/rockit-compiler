@@ -1,0 +1,264 @@
+// Tests for rockit.encoding.json
+import rockit.testing.probe
+import rockit.encoding.json
+
+// == Type Constructors =======================================================
+
+@Test fun testJsonNull() {
+    val v = jsonNull()
+    assertTrue(jsonIsNull(v))
+    assertEquals(JSON_NULL(), jsonType(v))
+}
+
+@Test fun testJsonBoolTrue() {
+    val v = jsonBool(true)
+    assertTrue(jsonIsBool(v))
+    assertTrue(jsonGetBool(v))
+}
+
+@Test fun testJsonBoolFalse() {
+    val v = jsonBool(false)
+    assertTrue(jsonIsBool(v))
+    assertFalse(jsonGetBool(v))
+}
+
+@Test fun testJsonNumber() {
+    val v = jsonNumber(42)
+    assertTrue(jsonIsNumber(v))
+    assertEquals(42, jsonGetInt(v))
+}
+
+@Test fun testJsonString() {
+    val v = jsonString("hello")
+    assertTrue(jsonIsString(v))
+    assertEqualsStr("hello", jsonGetString(v))
+}
+
+// == Array Operations ========================================================
+
+@Test fun testJsonArray() {
+    val arr = jsonArray()
+    assertTrue(jsonIsArray(arr))
+    assertEquals(0, jsonArraySize(arr))
+}
+
+@Test fun testJsonArrayAppendAndGet() {
+    val arr = jsonArray()
+    jsonArrayAppend(arr, jsonNumber(1))
+    jsonArrayAppend(arr, jsonString("two"))
+    assertEquals(2, jsonArraySize(arr))
+    assertEquals(1, jsonGetInt(jsonArrayGet(arr, 0)))
+    assertEqualsStr("two", jsonGetString(jsonArrayGet(arr, 1)))
+}
+
+@Test fun testJsonArraySet() {
+    val arr = jsonArray()
+    jsonArrayAppend(arr, jsonNumber(1))
+    assertTrue(jsonArraySet(arr, 0, jsonNumber(99)))
+    assertEquals(99, jsonGetInt(jsonArrayGet(arr, 0)))
+}
+
+@Test fun testJsonArrayRemoveAt() {
+    val arr = jsonArray()
+    jsonArrayAppend(arr, jsonNumber(1))
+    jsonArrayAppend(arr, jsonNumber(2))
+    assertTrue(jsonArrayRemoveAt(arr, 0))
+    assertEquals(1, jsonArraySize(arr))
+    assertEquals(2, jsonGetInt(jsonArrayGet(arr, 0)))
+}
+
+// == Object Operations =======================================================
+
+@Test fun testJsonObject() {
+    val obj = jsonObject()
+    assertTrue(jsonIsObject(obj))
+    assertEquals(0, jsonObjectSize(obj))
+}
+
+@Test fun testJsonObjectPutAndGet() {
+    val obj = jsonObject()
+    jsonObjectPut(obj, "name", jsonString("Rockit"))
+    jsonObjectPut(obj, "version", jsonNumber(1))
+    assertEquals(2, jsonObjectSize(obj))
+    assertEqualsStr("Rockit", jsonGetString(jsonObjectGet(obj, "name")))
+    assertEquals(1, jsonGetInt(jsonObjectGet(obj, "version")))
+}
+
+@Test fun testJsonObjectHas() {
+    val obj = jsonObject()
+    jsonObjectPut(obj, "key", jsonNull())
+    assertTrue(jsonObjectHas(obj, "key"))
+    assertFalse(jsonObjectHas(obj, "missing"))
+}
+
+@Test fun testJsonObjectRemove() {
+    val obj = jsonObject()
+    jsonObjectPut(obj, "a", jsonNumber(1))
+    jsonObjectPut(obj, "b", jsonNumber(2))
+    assertTrue(jsonObjectRemove(obj, "a"))
+    assertEquals(1, jsonObjectSize(obj))
+    assertFalse(jsonObjectHas(obj, "a"))
+}
+
+// == Parsing =================================================================
+
+@Test fun testParseNull() {
+    val v = jsonParse("null")
+    assertTrue(jsonIsNull(v))
+}
+
+@Test fun testParseTrue() {
+    val v = jsonParse("true")
+    assertTrue(jsonIsBool(v))
+    assertTrue(jsonGetBool(v))
+}
+
+@Test fun testParseFalse() {
+    val v = jsonParse("false")
+    assertTrue(jsonIsBool(v))
+    assertFalse(jsonGetBool(v))
+}
+
+@Test fun testParseNumber() {
+    val v = jsonParse("42")
+    assertTrue(jsonIsNumber(v))
+    assertEquals(42, jsonGetInt(v))
+}
+
+@Test fun testParseNegativeNumber() {
+    val v = jsonParse("-7")
+    assertTrue(jsonIsNumber(v))
+    assertEquals(-7, jsonGetInt(v))
+}
+
+@Test fun testParseString() {
+    val v = jsonParse("\"hello\"")
+    assertTrue(jsonIsString(v))
+    assertEqualsStr("hello", jsonGetString(v))
+}
+
+@Test fun testParseStringWithEscapes() {
+    val v = jsonParse("\"line1\\nline2\"")
+    assertTrue(jsonIsString(v))
+    assertStringContains(jsonGetString(v), "line1")
+}
+
+@Test fun testParseEmptyArray() {
+    val v = jsonParse("[]")
+    assertTrue(jsonIsArray(v))
+    assertEquals(0, jsonArraySize(v))
+}
+
+@Test fun testParseArray() {
+    val v = jsonParse("[1, 2, 3]")
+    assertTrue(jsonIsArray(v))
+    assertEquals(3, jsonArraySize(v))
+    assertEquals(2, jsonGetInt(jsonArrayGet(v, 1)))
+}
+
+@Test fun testParseEmptyObject() {
+    val v = jsonParse("{}")
+    assertTrue(jsonIsObject(v))
+    assertEquals(0, jsonObjectSize(v))
+}
+
+@Test fun testParseObject() {
+    val v = jsonParse("{\"name\": \"test\", \"value\": 42}")
+    assertTrue(jsonIsObject(v))
+    assertEqualsStr("test", jsonGetString(jsonObjectGet(v, "name")))
+    assertEquals(42, jsonGetInt(jsonObjectGet(v, "value")))
+}
+
+@Test fun testParseNested() {
+    val v = jsonParse("{\"arr\": [1, {\"x\": true}]}")
+    assertTrue(jsonIsObject(v))
+    val arr = jsonObjectGet(v, "arr")
+    assertTrue(jsonIsArray(arr))
+    val inner = jsonArrayGet(arr, 1)
+    assertTrue(jsonGetBool(jsonObjectGet(inner, "x")))
+}
+
+@Test fun testParseError() {
+    val v = jsonParse("{invalid}")
+    assertTrue(jsonIsError(v))
+}
+
+// == Stringify ===============================================================
+
+@Test fun testStringifyNull() {
+    assertEqualsStr("null", jsonStringify(jsonNull()))
+}
+
+@Test fun testStringifyBool() {
+    assertEqualsStr("true", jsonStringify(jsonBool(true)))
+    assertEqualsStr("false", jsonStringify(jsonBool(false)))
+}
+
+@Test fun testStringifyNumber() {
+    assertEqualsStr("42", jsonStringify(jsonNumber(42)))
+}
+
+@Test fun testStringifyString() {
+    assertEqualsStr("\"hello\"", jsonStringify(jsonString("hello")))
+}
+
+@Test fun testStringifyArray() {
+    val arr = jsonArray()
+    jsonArrayAppend(arr, jsonNumber(1))
+    jsonArrayAppend(arr, jsonNumber(2))
+    assertEqualsStr("[1,2]", jsonStringify(arr))
+}
+
+@Test fun testStringifyObject() {
+    val obj = jsonObject()
+    jsonObjectPut(obj, "a", jsonNumber(1))
+    assertStringContains(jsonStringify(obj), "\"a\":1")
+}
+
+// == Roundtrip ===============================================================
+
+@Test fun testRoundtrip() {
+    val input = "{\"name\":\"Rockit\",\"version\":1,\"active\":true}"
+    val parsed = jsonParse(input)
+    val output = jsonStringify(parsed)
+    assertEqualsStr(input, output)
+}
+
+// == Deep Equality ===========================================================
+
+@Test fun testJsonEquals() {
+    val a = jsonParse("{\"x\": [1, 2]}")
+    val b = jsonParse("{\"x\": [1, 2]}")
+    assertTrue(jsonEquals(a, b))
+}
+
+@Test fun testJsonNotEquals() {
+    val a = jsonParse("{\"x\": 1}")
+    val b = jsonParse("{\"x\": 2}")
+    assertFalse(jsonEquals(a, b))
+}
+
+// == Auto-Wrapping ===========================================================
+
+@Test fun testJsonFromInt() {
+    val v = jsonFrom(42)
+    assertTrue(jsonIsNumber(v))
+    assertEquals(42, jsonGetInt(v))
+}
+
+@Test fun testJsonFromString() {
+    val v = jsonFrom("hello")
+    assertTrue(jsonIsString(v))
+    assertEqualsStr("hello", jsonGetString(v))
+}
+
+@Test fun testJsonFromBool() {
+    val v = jsonFrom(true)
+    assertTrue(jsonIsBool(v))
+    assertTrue(jsonGetBool(v))
+}
+
+@Test fun testJsonFromNull() {
+    val v = jsonFrom(null)
+    assertTrue(jsonIsNull(v))
+}

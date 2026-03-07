@@ -1,0 +1,110 @@
+// Tests for rockit.networking.websocket
+// NOTE: Tests focus on frame encoding and helpers, not live connections
+import rockit.testing.probe
+import rockit.networking.websocket
+
+// == Frame Type Constants ====================================================
+
+@Test fun testFrameTypes() {
+    assertEquals(1, WS_TEXT())
+    assertEquals(2, WS_BINARY())
+    assertEquals(8, WS_CLOSE())
+    assertEquals(9, WS_PING())
+    assertEquals(10, WS_PONG())
+}
+
+// == XOR Helper ==============================================================
+
+@Test fun testWsXorZero() {
+    assertEquals(0, wsXor(0, 0))
+}
+
+@Test fun testWsXorIdentity() {
+    assertEquals(255, wsXor(0, 255))
+    assertEquals(255, wsXor(255, 0))
+}
+
+@Test fun testWsXorSelf() {
+    assertEquals(0, wsXor(42, 42))
+    assertEquals(0, wsXor(255, 255))
+}
+
+@Test fun testWsXorKnown() {
+    // 0b10101010 XOR 0b01010101 = 0b11111111
+    assertEquals(255, wsXor(170, 85))
+}
+
+@Test fun testWsXorSymmetric() {
+    assertEquals(wsXor(100, 200), wsXor(200, 100))
+}
+
+// == Unmask ==================================================================
+
+@Test fun testWsUnmask() {
+    // Create a simple masked payload and verify unmasking
+    val maskKey = stringConcat(intToChar(0), stringConcat(intToChar(0), stringConcat(intToChar(0), intToChar(0))))
+    val data = "HELLO"
+    val unmasked = wsUnmask(data, maskKey)
+    // XOR with zero mask should return original
+    assertEqualsStr("HELLO", unmasked)
+}
+
+@Test fun testWsUnmaskRoundtrip() {
+    // Mask and then unmask should return original
+    val maskKey = stringConcat(intToChar(1), stringConcat(intToChar(2), stringConcat(intToChar(3), intToChar(4))))
+    val original = "test"
+
+    // Manually mask
+    var masked: String = ""
+    var i: Int = 0
+    while (i < stringLength(original)) {
+        val b = charCodeAt(original, i)
+        val m = charCodeAt(maskKey, i - (i / 4) * 4)
+        masked = stringConcat(masked, intToChar(wsXor(b, m)))
+        i = i + 1
+    }
+
+    // Unmask should recover original
+    val recovered = wsUnmask(masked, maskKey)
+    assertEqualsStr("test", recovered)
+}
+
+// == Key Generation ==========================================================
+
+@Test fun testWsGenerateKey() {
+    val key = wsGenerateKey()
+    // Base64 of 16 bytes = 24 characters (with padding)
+    assertStringLength(key, 24)
+}
+
+@Test fun testWsGenerateKeyUniqueness() {
+    val key1 = wsGenerateKey()
+    val key2 = wsGenerateKey()
+    assertNotEqualsStr(key1, key2, "keys should be different")
+}
+
+// == Connection State ========================================================
+
+@Test fun testWsIsOpenTrue() {
+    val ws = mapCreate()
+    mapPut(ws, "fd", 5)
+    assertTrue(wsIsOpen(ws))
+}
+
+@Test fun testWsIsOpenFalse() {
+    val ws = mapCreate()
+    mapPut(ws, "fd", 0 - 1)
+    assertFalse(wsIsOpen(ws))
+}
+
+@Test fun testWsSendClosed() {
+    val ws = mapCreate()
+    mapPut(ws, "fd", 0 - 1)
+    assertFalse(wsSend(ws, "hello"))
+}
+
+@Test fun testWsSendBinaryClosed() {
+    val ws = mapCreate()
+    mapPut(ws, "fd", 0 - 1)
+    assertFalse(wsSendBinary(ws, "data"))
+}

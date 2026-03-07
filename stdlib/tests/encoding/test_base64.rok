@@ -1,0 +1,82 @@
+// Tests for rockit.encoding.base64
+// Includes RFC 4648 Section 10 test vectors
+import rockit.testing.probe
+import rockit.encoding.base64
+
+// == RFC 4648 Section 10 Test Vectors ========================================
+
+@Test fun testEncodeEmpty() {
+    assertEqualsStr("", base64Encode(""))
+}
+
+@Test fun testEncodeF() {
+    assertEqualsStr("Zg==", base64Encode("f"))
+}
+
+@Test fun testEncodeFo() {
+    assertEqualsStr("Zm8=", base64Encode("fo"))
+}
+
+@Test fun testEncodeFoo() {
+    assertEqualsStr("Zm9v", base64Encode("foo"))
+}
+
+@Test fun testEncodeFoob() {
+    assertEqualsStr("Zm9vYg==", base64Encode("foob"))
+}
+
+@Test fun testEncodeFooba() {
+    assertEqualsStr("Zm9vYmE=", base64Encode("fooba"))
+}
+
+@Test fun testEncodeFoobar() {
+    assertEqualsStr("Zm9vYmFy", base64Encode("foobar"))
+}
+
+// == Decode (reverse of RFC 4648 vectors) ====================================
+
+@Test fun testDecodeEmpty() {
+    assertEqualsStr("", base64Decode(""))
+}
+
+@Test fun testDecodeF() {
+    assertEqualsStr("f", base64Decode("Zg=="))
+}
+
+@Test fun testDecodeFo() {
+    assertEqualsStr("fo", base64Decode("Zm8="))
+}
+
+@Test fun testDecodeFoo() {
+    assertEqualsStr("foo", base64Decode("Zm9v"))
+}
+
+@Test fun testDecodeFoob() {
+    assertEqualsStr("foob", base64Decode("Zm9vYg=="))
+}
+
+@Test fun testDecodeFooba() {
+    assertEqualsStr("fooba", base64Decode("Zm9vYmE="))
+}
+
+@Test fun testDecodeFoobar() {
+    assertEqualsStr("foobar", base64Decode("Zm9vYmFy"))
+}
+
+// == Roundtrip ===============================================================
+
+@Test fun testRoundtripHelloWorld() {
+    val original = "Hello, World!"
+    assertEqualsStr(original, base64Decode(base64Encode(original)))
+}
+
+@Test fun testRoundtripBinaryLike() {
+    val original = "abc123!@#"
+    assertEqualsStr(original, base64Decode(base64Encode(original)))
+}
+
+// == Additional Cases ========================================================
+
+@Test fun testEncodeHelloWorld() {
+    assertEqualsStr("SGVsbG8sIFdvcmxkIQ==", base64Encode("Hello, World!"))
+}

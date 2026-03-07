@@ -1,0 +1,49 @@
+// Tests for rockit.core.result
+import rockit.testing.probe
+import rockit.core.result
+
+@Test fun testSuccessCreation() {
+    val r = Success(42)
+    assertTrue(isSuccess(r))
+    assertFalse(isFailure(r))
+}
+
+@Test fun testFailureCreation() {
+    val r = Failure("something went wrong")
+    assertFalse(isSuccess(r))
+    assertTrue(isFailure(r))
+}
+
+@Test fun testResultOrElseSuccess() {
+    val r = Success(42)
+    assertEquals(42, resultOrElse(r, 0))
+}
+
+@Test fun testResultOrElseFailure() {
+    val r = Failure("error")
+    assertEquals(0, resultOrElse(r, 0))
+}
+
+@Test fun testResultError() {
+    val f = Failure("bad input")
+    assertEqualsStr("bad input", resultError(f))
+}
+
+@Test fun testResultErrorOnSuccess() {
+    val s = Success(1)
+    assertEqualsStr("", resultError(s))
+}
+
+@Test fun testResultMapSuccess() {
+    val r = Success(10)
+    val mapped = resultMap(r, fun(x: Int): Int { return x * 2 })
+    assertTrue(isSuccess(mapped))
+    assertEquals(20, resultOrElse(mapped, 0))
+}
+
+@Test fun testResultMapFailure() {
+    val r = Failure("err")
+    val mapped = resultMap(r, fun(x: Int): Int { return x * 2 })
+    assertTrue(isFailure(mapped))
+    assertEqualsStr("err", resultError(mapped))
+}

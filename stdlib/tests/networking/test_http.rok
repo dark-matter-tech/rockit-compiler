@@ -1,0 +1,104 @@
+// Tests for rockit.networking.http
+// NOTE: Tests focus on response parsing, not live network requests
+import rockit.testing.probe
+import rockit.networking.http
+import rockit.networking.url
+
+// == Response Parsing ========================================================
+
+@Test fun testParseSimpleResponse() {
+    val raw = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello"
+    val result = mapCreate()
+    val headers = mapCreate()
+    mapPut(result, "headers", headers)
+    httpParseResponse(raw, result, headers)
+    assertEquals(200, toInt(mapGet(result, "status")))
+    assertEqualsStr("Hello", toString(mapGet(result, "body")))
+}
+
+@Test fun testParseResponseHeaders() {
+    val raw = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nX-Custom: value\r\n\r\nbody"
+    val result = mapCreate()
+    val headers = mapCreate()
+    mapPut(result, "headers", headers)
+    httpParseResponse(raw, result, headers)
+    assertEqualsStr("text/html", toString(mapGet(headers, "Content-Type")))
+    assertEqualsStr("value", toString(mapGet(headers, "X-Custom")))
+}
+
+@Test fun testParseResponseNoBody() {
+    val raw = "HTTP/1.1 204 No Content\r\n\r\n"
+    val result = mapCreate()
+    val headers = mapCreate()
+    mapPut(result, "headers", headers)
+    httpParseResponse(raw, result, headers)
+    assertEquals(204, toInt(mapGet(result, "status")))
+    assertEqualsStr("", toString(mapGet(result, "body")))
+}
+
+@Test fun testParseEmptyResponse() {
+    val result = mapCreate()
+    val headers = mapCreate()
+    mapPut(result, "headers", headers)
+    httpParseResponse("", result, headers)
+    assertEquals(0, toInt(mapGet(result, "status")))
+    assertEqualsStr("Empty response", toString(mapGet(result, "error")))
+}
+
+@Test fun testParse404Response() {
+    val raw = "HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nNot Found"
+    val result = mapCreate()
+    val headers = mapCreate()
+    mapPut(result, "headers", headers)
+    httpParseResponse(raw, result, headers)
+    assertEquals(404, toInt(mapGet(result, "status")))
+    assertEqualsStr("Not Found", toString(mapGet(result, "body")))
+}
+
+// == Header Lookup ===========================================================
+
+@Test fun testHttpHeaderCaseInsensitive() {
+    val resp = mapCreate()
+    val hdrs = mapCreate()
+    mapPut(hdrs, "Content-Type", "application/json")
+    mapPut(resp, "headers", hdrs)
+    assertEqualsStr("application/json", httpHeader(resp, "content-type"))
+    assertEqualsStr("application/json", httpHeader(resp, "Content-Type"))
+}
+
+@Test fun testHttpHeaderMissing() {
+    val resp = mapCreate()
+    val hdrs = mapCreate()
+    mapPut(resp, "headers", hdrs)
+    assertEqualsStr("", httpHeader(resp, "X-Missing"))
+}
+
+// == Response Accessors ======================================================
+
+@Test fun testHttpStatus() {
+    val resp = mapCreate()
+    mapPut(resp, "status", 200)
+    assertEquals(200, httpStatus(resp))
+}
+
+@Test fun testHttpBody() {
+    val resp = mapCreate()
+    mapPut(resp, "body", "content")
+    assertEqualsStr("content", httpBody(resp))
+}
+
+@Test fun testHttpIsError() {
+    val resp = mapCreate()
+    mapPut(resp, "error", "")
+    assertFalse(httpIsError(resp))
+
+    val errResp = mapCreate()
+    mapPut(errResp, "error", "connection failed")
+    assertTrue(httpIsError(errResp))
+}
+
+@Test fun testHttpErrorMessage() {
+    val resp = mapCreate()
+    mapPut(resp, "error", "timeout")
+    assertEqualsStr("timeout", httpErrorMessage(resp))
+}

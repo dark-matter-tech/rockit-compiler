@@ -1,0 +1,189 @@
+// rockit.core.math — Integer and floating-point math utilities
+//
+// Provides common mathematical operations including integer arithmetic,
+// trigonometric functions, exponentials, and rounding. Floating-point
+// functions delegate to compiler-provided rockit_math_* builtins.
+//
+// Usage:
+//   import rockit.core.math
+//   val r = sqrt(2.0)
+//   val n = gcd(12, 8)
+
+// == Integer Arithmetic ======================================================
+
+// Return the square of n
+fun square(n: Int): Int {
+    return n * n
+}
+
+// Return the cube of n
+fun cube(n: Int): Int {
+    return n * n * n
+}
+
+// Raise base to a non-negative integer exponent
+fun power(base: Int, exp: Int): Int {
+    if (exp == 0) { return 1 }
+    var result: Int = 1
+    var i: Int = 0
+    while (i < exp) {
+        result = result * base
+        i = i + 1
+    }
+    return result
+}
+
+// Return the absolute value of n
+fun abs(n: Int): Int {
+    if (n < 0) { return 0 - n }
+    return n
+}
+
+// Compute n! (factorial)
+fun factorial(n: Int): Int {
+    if (n <= 1) { return 1 }
+    return n * factorial(n - 1)
+}
+
+// Greatest common divisor (Euclidean algorithm)
+fun gcd(a: Int, b: Int): Int {
+    var x: Int = abs(a)
+    var y: Int = abs(b)
+    while (y != 0) {
+        val temp: Int = y
+        y = x % y
+        x = temp
+    }
+    return x
+}
+
+// Least common multiple
+fun lcm(a: Int, b: Int): Int {
+    if (a == 0 || b == 0) { return 0 }
+    return abs(a * b) / gcd(a, b)
+}
+
+// Clamp value to [lo, hi]
+fun clamp(value: Int, lo: Int, hi: Int): Int {
+    if (value < lo) { return lo }
+    if (value > hi) { return hi }
+    return value
+}
+
+// Return -1, 0, or 1 for the sign of n
+fun sign(n: Int): Int {
+    if (n > 0) { return 1 }
+    if (n < 0) { return -1 }
+    return 0
+}
+
+// Return true if n is even
+fun isEven(n: Int): Bool {
+    return n % 2 == 0
+}
+
+// Return true if n is odd
+fun isOdd(n: Int): Bool {
+    return n % 2 != 0
+}
+
+// == Constants ===============================================================
+
+// Pi (3.14159...)
+fun PI(): Double {
+    return 3.141592653589793
+}
+
+// Euler's number (2.71828...)
+fun E(): Double {
+    return 2.718281828459045
+}
+
+// Tau (2*Pi)
+fun TAU(): Double {
+    return 6.283185307179586
+}
+
+// == Floating-Point Functions ================================================
+
+// Square root
+fun sqrt(x: Double): Double {
+    return rockit_math_sqrt(x)
+}
+
+// Sine
+fun sin(x: Double): Double {
+    return rockit_math_sin(x)
+}
+
+// Cosine
+fun cos(x: Double): Double {
+    return rockit_math_cos(x)
+}
+
+// Tangent
+fun tan(x: Double): Double {
+    return rockit_math_tan(x)
+}
+
+// Two-argument arctangent
+fun atan2(y: Double, x: Double): Double {
+    return rockit_math_atan2(y, x)
+}
+
+// Raise base to exp
+fun pow(base: Double, exp: Double): Double {
+    return rockit_math_pow(base, exp)
+}
+
+// Natural logarithm
+fun log(x: Double): Double {
+    return rockit_math_log(x)
+}
+
+// Exponential (e^x)
+fun exp(x: Double): Double {
+    return rockit_math_exp(x)
+}
+
+// Floor (round down)
+fun floor(x: Double): Double {
+    return rockit_math_floor(x)
+}
+
+// Ceiling (round up)
+fun ceil(x: Double): Double {
+    return rockit_math_ceil(x)
+}
+
+// Round to nearest integer
+fun round(x: Double): Double {
+    return rockit_math_round(x)
+}
+
+// Absolute value (float)
+fun absFloat(x: Double): Double {
+    return rockit_math_abs(x)
+}
+
+// Convert degrees to radians
+fun toRadians(degrees: Double): Double {
+    return degrees * 3.141592653589793 / 180.0
+}
+
+// Convert radians to degrees
+fun toDegrees(radians: Double): Double {
+    return radians * 180.0 / 3.141592653589793
+}
+
+// Linear interpolation between a and b by factor t
+fun lerp(a: Double, b: Double, t: Double): Double {
+    return a + (b - a) * t
+}
+
+// Clamp a float to [lo, hi]
+fun clampFloat(value: Double, lo: Double, hi: Double): Double {
+    if (value < lo) { return lo }
+    if (value > hi) { return hi }
+    return value
+}

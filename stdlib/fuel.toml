@@ -1,0 +1,34 @@
+[package]
+name = "launchpad"
+version = "0.1.0"
+
+[dependencies]
+
+[test]
+directory = "tests"
+recursive = true
+timeout = 30
+
+[test.scheme.core]
+include = ["core"]
+exclude = []
+
+[test.scheme.encoding]
+include = ["encoding"]
+exclude = []
+
+[test.scheme.filesystem]
+include = ["filesystem"]
+exclude = []
+
+[test.scheme.networking]
+include = ["networking"]
+exclude = []
+
+[test.scheme.time]
+include = ["time"]
+exclude = []
+
+[test.scheme.all]
+include = ["*"]
+exclude = []

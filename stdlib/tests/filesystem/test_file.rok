@@ -1,0 +1,57 @@
+// Tests for rockit.filesystem.file
+import rockit.testing.probe
+import rockit.filesystem.file
+
+@Test fun testWriteAndReadFile() {
+    val path = "/tmp/rockit_test_file.txt"
+    assertTrue(writeFile(path, "hello world"))
+    assertEqualsStr("hello world", readFile(path))
+    deleteFile(path)
+}
+
+@Test fun testFileExists() {
+    val path = "/tmp/rockit_test_exists.txt"
+    writeFile(path, "test")
+    assertTrue(exists(path))
+    deleteFile(path)
+    assertFalse(exists(path))
+}
+
+@Test fun testDeleteFile() {
+    val path = "/tmp/rockit_test_delete.txt"
+    writeFile(path, "delete me")
+    assertTrue(exists(path))
+    assertTrue(deleteFile(path))
+    assertFalse(exists(path))
+}
+
+@Test fun testReadLines() {
+    val path = "/tmp/rockit_test_lines.txt"
+    writeFile(path, "line1\nline2\nline3")
+    val lines = readLines(path)
+    assertEquals(3, listSize(lines))
+    assertEqualsStr("line1", toString(listGet(lines, 0)))
+    assertEqualsStr("line3", toString(listGet(lines, 2)))
+    deleteFile(path)
+}
+
+@Test fun testWriteLines() {
+    val path = "/tmp/rockit_test_writelines.txt"
+    val lines = listCreate()
+    listAppend(lines, "alpha")
+    listAppend(lines, "beta")
+    listAppend(lines, "gamma")
+    assertTrue(writeLines(path, lines))
+    val content = readFile(path)
+    assertStringContains(content, "alpha")
+    assertStringContains(content, "beta")
+    assertStringContains(content, "gamma")
+    deleteFile(path)
+}
+
+@Test fun testReadWriteEmpty() {
+    val path = "/tmp/rockit_test_empty.txt"
+    writeFile(path, "")
+    assertEqualsStr("", readFile(path))
+    deleteFile(path)
+}

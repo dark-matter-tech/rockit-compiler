@@ -1,0 +1,164 @@
+// rockit.core.strings — String utility functions
+//
+// Convenience wrappers and additional operations built on top of Rockit's
+// built-in string primitives (stringConcat, stringLength, charAt, etc.).
+//
+// Usage:
+//   import rockit.core.strings
+//   val s = padLeft("42", 5, "0")   // "00042"
+//   val parts = split("a,b,c", ",") // ["a", "b", "c"]
+
+// == Padding and Repeating ===================================================
+
+// Pad string on the left to reach target width
+fun padLeft(s: String, width: Int, ch: String = " "): String {
+    var result: String = s
+    while (stringLength(result) < width) {
+        result = stringConcat(ch, result)
+    }
+    return result
+}
+
+// Pad string on the right to reach target width
+fun padRight(s: String, width: Int, ch: String = " "): String {
+    var result: String = s
+    while (stringLength(result) < width) {
+        result = stringConcat(result, ch)
+    }
+    return result
+}
+
+// Repeat a string count times
+fun repeat(s: String, count: Int): String {
+    var result: String = ""
+    var i: Int = 0
+    while (i < count) {
+        result = stringConcat(result, s)
+        i = i + 1
+    }
+    return result
+}
+
+// Left pad with zeros (useful for number formatting)
+fun zeroPad(s: String, width: Int): String {
+    return padLeft(s, width, "0")
+}
+
+// == Joining and Splitting ===================================================
+
+// Join list elements with separator
+fun join(items: List, separator: String): String {
+    val size = listSize(items)
+    if (size == 0) { return "" }
+    var result: String = toString(listGet(items, 0))
+    var i: Int = 1
+    while (i < size) {
+        result = stringConcat(result, stringConcat(separator, toString(listGet(items, i))))
+        i = i + 1
+    }
+    return result
+}
+
+// Split string by delimiter
+fun split(s: String, delimiter: String): List {
+    return stringSplit(s, delimiter)
+}
+
+// == Case Conversion =========================================================
+
+// Convert to uppercase
+fun toUpper(s: String): String {
+    return stringToUpper(s)
+}
+
+// Convert to lowercase
+fun toLower(s: String): String {
+    return stringToLower(s)
+}
+
+// == Searching and Testing ===================================================
+
+// Return true if s contains sub
+fun contains(s: String, sub: String): Bool {
+    return stringContains(s, sub)
+}
+
+// Return index of first occurrence of sub, or -1
+fun indexOf(s: String, sub: String): Int {
+    return stringIndexOf(s, sub)
+}
+
+// Return true if string is empty
+fun isEmpty(s: String): Bool {
+    return stringLength(s) == 0
+}
+
+// Return true if string is non-empty
+fun isNotEmpty(s: String): Bool {
+    return stringLength(s) > 0
+}
+
+// Count non-overlapping occurrences of sub in s
+fun countOccurrences(s: String, sub: String): Int {
+    var count: Int = 0
+    var pos: Int = 0
+    val subLen = stringLength(sub)
+    val sLen = stringLength(s)
+    while (pos <= sLen - subLen) {
+        val slice = stringSubstring(s, pos, pos + subLen)
+        if (slice == sub) {
+            count = count + 1
+            pos = pos + subLen
+        } else {
+            pos = pos + 1
+        }
+    }
+    return count
+}
+
+// == Transformation ==========================================================
+
+// Trim leading and trailing whitespace
+fun trim(s: String): String {
+    return stringTrim(s)
+}
+
+// Replace all occurrences of old with new
+fun replace(s: String, old: String, new: String): String {
+    return stringReplace(s, old, new)
+}
+
+// Reverse a string
+fun reversed(s: String): String {
+    val len = stringLength(s)
+    var result: String = ""
+    var i: Int = len - 1
+    while (i >= 0) {
+        result = stringConcat(result, charAt(s, i))
+        i = i - 1
+    }
+    return result
+}
+
+// Truncate to maxLen characters, appending "..." if truncated
+fun truncate(s: String, maxLen: Int): String {
+    if (stringLength(s) <= maxLen) { return s }
+    return stringConcat(stringSubstring(s, 0, maxLen), "...")
+}
+
+// == Accessors ===============================================================
+
+// Return the length of a string
+fun length(s: String): Int {
+    return stringLength(s)
+}
+
+// Return the character at index
+fun charAtPos(s: String, index: Int): String {
+    return charAt(s, index)
+}
+
+// Extract substring from start (inclusive) to end (exclusive)
+fun substring(s: String, start: Int, end: Int): String {
+    return stringSubstring(s, start, end)
+}

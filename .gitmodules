@@ -1,0 +1,4 @@
+[submodule "stdlib"]
+	path = stdlib
+	url = https://rustygits.com/Dark-Matter/launchpad.git
+	branch = main

@@ -1,0 +1,116 @@
+// Tests for rockit.filesystem.path
+import rockit.testing.probe
+import rockit.filesystem.path
+
+// == pathJoin ================================================================
+
+@Test fun testPathJoinBasic() {
+    assertEqualsStr("/usr/local", pathJoin("/usr", "local"))
+}
+
+@Test fun testPathJoinTrailingSlash() {
+    assertEqualsStr("/usr/local", pathJoin("/usr/", "local"))
+}
+
+@Test fun testPathJoinLeadingSlash() {
+    assertEqualsStr("/usr/local", pathJoin("/usr", "/local"))
+}
+
+@Test fun testPathJoinBothSlash() {
+    assertEqualsStr("/usr/local", pathJoin("/usr/", "/local"))
+}
+
+@Test fun testPathJoinEmpty() {
+    assertEqualsStr("local", pathJoin("", "local"))
+    assertEqualsStr("/usr", pathJoin("/usr", ""))
+}
+
+// == pathDir =================================================================
+
+@Test fun testPathDir() {
+    assertEqualsStr("/usr/local", pathDir("/usr/local/bin"))
+}
+
+@Test fun testPathDirRoot() {
+    assertEqualsStr("/", pathDir("/file.txt"))
+}
+
+@Test fun testPathDirNoSlash() {
+    assertEqualsStr(".", pathDir("file.txt"))
+}
+
+@Test fun testPathDirEmpty() {
+    assertEqualsStr(".", pathDir(""))
+}
+
+// == pathBase ================================================================
+
+@Test fun testPathBase() {
+    assertEqualsStr("file.txt", pathBase("/usr/local/file.txt"))
+}
+
+@Test fun testPathBaseNoDir() {
+    assertEqualsStr("file.txt", pathBase("file.txt"))
+}
+
+@Test fun testPathBaseTrailingSlash() {
+    assertEqualsStr("bin", pathBase("/usr/bin/"))
+}
+
+// == pathExt =================================================================
+
+@Test fun testPathExt() {
+    assertEqualsStr(".rok", pathExt("file.rok"))
+}
+
+@Test fun testPathExtFull() {
+    assertEqualsStr(".rok", pathExt("/path/to/file.rok"))
+}
+
+@Test fun testPathExtNone() {
+    assertEqualsStr("", pathExt("Makefile"))
+}
+
+@Test fun testPathExtMultipleDots() {
+    assertEqualsStr(".gz", pathExt("archive.tar.gz"))
+}
+
+// == pathWithoutExt ==========================================================
+
+@Test fun testPathWithoutExt() {
+    assertEqualsStr("/path/to/file", pathWithoutExt("/path/to/file.rok"))
+}
+
+@Test fun testPathWithoutExtNone() {
+    assertEqualsStr("Makefile", pathWithoutExt("Makefile"))
+}
+
+// == pathIsAbsolute ==========================================================
+
+@Test fun testPathIsAbsolute() {
+    assertTrue(pathIsAbsolute("/usr/local"))
+    assertFalse(pathIsAbsolute("relative/path"))
+    assertFalse(pathIsAbsolute(""))
+}
+
+// == pathNormalize ===========================================================
+
+@Test fun testNormalizeDots() {
+    assertEqualsStr("/usr/local", pathNormalize("/usr/./local"))
+}
+
+@Test fun testNormalizeDotDot() {
+    assertEqualsStr("/usr", pathNormalize("/usr/local/.."))
+}
+
+@Test fun testNormalizeComplex() {
+    assertEqualsStr("/a/b", pathNormalize("/a/b/c/../d/.."))
+}
+
+@Test fun testNormalizeEmpty() {
+    assertEqualsStr(".", pathNormalize(""))
+}
+
+@Test fun testNormalizeRelative() {
+    assertEqualsStr("a/b", pathNormalize("a/./b"))
+}

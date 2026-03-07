@@ -1,0 +1,34 @@
+// Tests for rockit.core.uuid
+import rockit.testing.probe
+import rockit.core.uuid
+
+@Test fun testUuid4Format() {
+    val id = uuid4()
+    // UUID v4 format: 8-4-4-4-12 hex chars = 36 total with dashes
+    assertStringLength(id, 36)
+    // Dashes at positions 8, 13, 18, 23
+    assertEqualsStr("-", charAt(id, 8))
+    assertEqualsStr("-", charAt(id, 13))
+    assertEqualsStr("-", charAt(id, 18))
+    assertEqualsStr("-", charAt(id, 23))
+}
+
+@Test fun testUuid4VersionByte() {
+    val id = uuid4()
+    // Position 14 must be '4' (version nibble)
+    assertEqualsStr("4", charAt(id, 14))
+}
+
+@Test fun testUuid4VariantByte() {
+    val id = uuid4()
+    // Position 19 must be one of '8', '9', 'a', 'b' (variant 1)
+    val ch = charAt(id, 19)
+    val valid = ch == "8" || ch == "9" || ch == "a" || ch == "b"
+    assertTrue(valid, "variant nibble must be 8, 9, a, or b")
+}
+
+@Test fun testUuid4Uniqueness() {
+    val id1 = uuid4()
+    val id2 = uuid4()
+    assertNotEqualsStr(id1, id2, "two UUIDs should differ")
+}

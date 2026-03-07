@@ -1,0 +1,211 @@
+// Tests for rockit.core.collections
+import rockit.testing.probe
+import rockit.core.collections
+
+// == List Constructors =======================================================
+
+@Test fun testListOf1() {
+    val l = listOf1(42)
+    assertEquals(1, listSize(l))
+    assertEquals(42, toInt(listGet(l, 0)))
+}
+
+@Test fun testListOf2() {
+    val l = listOf2(1, 2)
+    assertEquals(2, listSize(l))
+    assertEquals(1, toInt(listGet(l, 0)))
+    assertEquals(2, toInt(listGet(l, 1)))
+}
+
+@Test fun testListOf3() {
+    val l = listOf3(10, 20, 30)
+    assertEquals(3, listSize(l))
+    assertEquals(30, toInt(listGet(l, 2)))
+}
+
+@Test fun testListOf4() {
+    val l = listOf4(1, 2, 3, 4)
+    assertEquals(4, listSize(l))
+    assertEquals(4, toInt(listGet(l, 3)))
+}
+
+@Test fun testListOf5() {
+    val l = listOf5(1, 2, 3, 4, 5)
+    assertEquals(5, listSize(l))
+    assertEquals(5, toInt(listGet(l, 4)))
+}
+
+// == Basic Operations ========================================================
+
+@Test fun testListSum() {
+    val l = listOf3(10, 20, 30)
+    assertEquals(60, listSum(l))
+}
+
+@Test fun testListSumEmpty() {
+    val l = listCreate()
+    assertEquals(0, listSum(l))
+}
+
+@Test fun testListMax() {
+    val l = listOf3(5, 99, 3)
+    assertEquals(99, listMax(l))
+}
+
+@Test fun testListMin() {
+    val l = listOf3(5, 99, 3)
+    assertEquals(3, listMin(l))
+}
+
+@Test fun testListReverse() {
+    val l = listOf3(1, 2, 3)
+    listReverse(l)
+    assertEquals(3, toInt(listGet(l, 0)))
+    assertEquals(2, toInt(listGet(l, 1)))
+    assertEquals(1, toInt(listGet(l, 2)))
+}
+
+@Test fun testListCopy() {
+    val orig = listOf3(1, 2, 3)
+    val copy = listCopy(orig)
+    assertEquals(3, listSize(copy))
+    assertEquals(1, toInt(listGet(copy, 0)))
+    // Modifying copy should not affect original
+    listSet(copy, 0, 99)
+    assertEquals(1, toInt(listGet(orig, 0)))
+}
+
+@Test fun testListJoin() {
+    val l = listOf3(1, 2, 3)
+    assertEqualsStr("1, 2, 3", listJoin(l, ", "))
+}
+
+@Test fun testListJoinEmpty() {
+    val l = listCreate()
+    assertEqualsStr("", listJoin(l, ", "))
+}
+
+@Test fun testListIsEmpty() {
+    val empty = listCreate()
+    val nonEmpty = listOf1(1)
+    assertTrue(listIsEmpty(empty))
+    assertFalse(listIsEmpty(nonEmpty))
+}
+
+@Test fun testListFirst() {
+    val l = listOf3(10, 20, 30)
+    assertEquals(10, listFirst(l))
+}
+
+@Test fun testListFirstEmpty() {
+    val l = listCreate()
+    assertEquals(-1, listFirst(l))
+}
+
+@Test fun testListLast() {
+    val l = listOf3(10, 20, 30)
+    assertEquals(30, listLast(l))
+}
+
+@Test fun testListLastEmpty() {
+    val l = listCreate()
+    assertEquals(-1, listLast(l))
+}
+
+@Test fun testListSlice() {
+    val l = listOf5(10, 20, 30, 40, 50)
+    val s = listSlice(l, 1, 4)
+    assertEquals(3, listSize(s))
+    assertEquals(20, toInt(listGet(s, 0)))
+    assertEquals(40, toInt(listGet(s, 2)))
+}
+
+// == Higher-Order Functions ==================================================
+
+@Test fun testListMap() {
+    val l = listOf3(1, 2, 3)
+    val doubled = listMap(l, fun(x: Int): Int { return x * 2 })
+    assertEquals(2, toInt(listGet(doubled, 0)))
+    assertEquals(4, toInt(listGet(doubled, 1)))
+    assertEquals(6, toInt(listGet(doubled, 2)))
+}
+
+@Test fun testListFilter() {
+    val l = listOf5(1, 2, 3, 4, 5)
+    val evens = listFilter(l, fun(x: Int): Bool { return x % 2 == 0 })
+    assertEquals(2, listSize(evens))
+    assertEquals(2, toInt(listGet(evens, 0)))
+    assertEquals(4, toInt(listGet(evens, 1)))
+}
+
+@Test fun testListFold() {
+    val l = listOf3(1, 2, 3)
+    val sum = listFold(l, 0, fun(acc: Int, x: Int): Int { return acc + x })
+    assertEquals(6, sum)
+}
+
+@Test fun testListAny() {
+    val l = listOf3(1, 2, 3)
+    assertTrue(listAny(l, fun(x: Int): Bool { return x == 2 }))
+    assertFalse(listAny(l, fun(x: Int): Bool { return x == 99 }))
+}
+
+@Test fun testListAll() {
+    val l = listOf3(2, 4, 6)
+    assertTrue(listAll(l, fun(x: Int): Bool { return x % 2 == 0 }))
+    assertFalse(listAll(l, fun(x: Int): Bool { return x > 3 }))
+}
+
+@Test fun testListCount() {
+    val l = listOf5(1, 2, 3, 4, 5)
+    assertEquals(3, listCount(l, fun(x: Int): Bool { return x > 2 }))
+}
+
+@Test fun testListFind() {
+    val l = listOf3(10, 20, 30)
+    assertEquals(20, listFind(l, fun(x: Int): Bool { return x > 15 }))
+    assertEquals(-1, listFind(l, fun(x: Int): Bool { return x > 100 }))
+}
+
+// == Sorting and Deduplication ===============================================
+
+@Test fun testListSort() {
+    val l = listOf5(5, 3, 1, 4, 2)
+    listSort(l)
+    assertEquals(1, toInt(listGet(l, 0)))
+    assertEquals(2, toInt(listGet(l, 1)))
+    assertEquals(3, toInt(listGet(l, 2)))
+    assertEquals(4, toInt(listGet(l, 3)))
+    assertEquals(5, toInt(listGet(l, 4)))
+}
+
+@Test fun testListDistinct() {
+    val l = listOf5(1, 2, 2, 3, 1)
+    val d = listDistinct(l)
+    assertEquals(3, listSize(d))
+}
+
+// == Combining Lists =========================================================
+
+@Test fun testListZip() {
+    val a = listOf3(1, 2, 3)
+    val b = listOf3(10, 20, 30)
+    val z = listZip(a, b)
+    assertEquals(6, listSize(z))
+    assertEquals(1, toInt(listGet(z, 0)))
+    assertEquals(10, toInt(listGet(z, 1)))
+    assertEquals(2, toInt(listGet(z, 2)))
+    assertEquals(20, toInt(listGet(z, 3)))
+}
+
+@Test fun testListFlatten() {
+    val inner1 = listOf2(1, 2)
+    val inner2 = listOf2(3, 4)
+    val outer = listCreate()
+    listAppend(outer, inner1)
+    listAppend(outer, inner2)
+    val flat = listFlatten(outer)
+    assertEquals(4, listSize(flat))
+    assertEquals(1, toInt(listGet(flat, 0)))
+    assertEquals(4, toInt(listGet(flat, 3)))
+}

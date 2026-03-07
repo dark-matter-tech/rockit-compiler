@@ -1,0 +1,124 @@
+// Tests for rockit.core.strings
+import rockit.testing.probe
+import rockit.core.strings
+
+// == Padding and Repeating ===================================================
+
+@Test fun testPadLeft() {
+    assertEqualsStr("  hi", padLeft("hi", 4))
+    assertEqualsStr("00042", padLeft("42", 5, "0"))
+    assertEqualsStr("hi", padLeft("hi", 2))
+}
+
+@Test fun testPadRight() {
+    assertEqualsStr("hi  ", padRight("hi", 4))
+    assertEqualsStr("hi", padRight("hi", 2))
+}
+
+@Test fun testRepeat() {
+    assertEqualsStr("abcabcabc", repeat("abc", 3))
+    assertEqualsStr("", repeat("abc", 0))
+}
+
+@Test fun testZeroPad() {
+    assertEqualsStr("007", zeroPad("7", 3))
+    assertEqualsStr("42", zeroPad("42", 2))
+}
+
+// == Joining and Splitting ===================================================
+
+@Test fun testJoin() {
+    val items = listCreate()
+    listAppend(items, "a")
+    listAppend(items, "b")
+    listAppend(items, "c")
+    assertEqualsStr("a, b, c", join(items, ", "))
+}
+
+@Test fun testJoinEmpty() {
+    val items = listCreate()
+    assertEqualsStr("", join(items, ", "))
+}
+
+@Test fun testSplit() {
+    val parts = split("a,b,c", ",")
+    assertEquals(3, listSize(parts))
+    assertEqualsStr("a", toString(listGet(parts, 0)))
+    assertEqualsStr("c", toString(listGet(parts, 2)))
+}
+
+// == Case Conversion =========================================================
+
+@Test fun testToUpper() {
+    assertEqualsStr("HELLO", toUpper("hello"))
+    assertEqualsStr("HELLO", toUpper("HELLO"))
+}
+
+@Test fun testToLower() {
+    assertEqualsStr("hello", toLower("HELLO"))
+    assertEqualsStr("hello", toLower("hello"))
+}
+
+// == Searching and Testing ===================================================
+
+@Test fun testContains() {
+    assertTrue(contains("hello world", "world"))
+    assertFalse(contains("hello world", "xyz"))
+}
+
+@Test fun testIndexOf() {
+    assertEquals(6, indexOf("hello world", "world"))
+    assertEquals(-1, indexOf("hello", "xyz"))
+}
+
+@Test fun testIsEmpty() {
+    assertTrue(isEmpty(""))
+    assertFalse(isEmpty("x"))
+}
+
+@Test fun testIsNotEmpty() {
+    assertTrue(isNotEmpty("x"))
+    assertFalse(isNotEmpty(""))
+}
+
+@Test fun testCountOccurrences() {
+    assertEquals(3, countOccurrences("abcabcabc", "abc"))
+    assertEquals(0, countOccurrences("hello", "xyz"))
+    assertEquals(2, countOccurrences("aaa", "a"))
+}
+
+// == Transformation ==========================================================
+
+@Test fun testTrim() {
+    assertEqualsStr("hello", trim("  hello  "))
+    assertEqualsStr("hello", trim("hello"))
+}
+
+@Test fun testReplace() {
+    assertEqualsStr("h-e-l-l-o", replace("hello", "e", "-e-"))
+}
+
+@Test fun testReversed() {
+    assertEqualsStr("dcba", reversed("abcd"))
+    assertEqualsStr("", reversed(""))
+}
+
+@Test fun testTruncate() {
+    assertEqualsStr("hel...", truncate("hello world", 3))
+    assertEqualsStr("hi", truncate("hi", 10))
+}
+
+// == Accessors ===============================================================
+
+@Test fun testLength() {
+    assertEquals(5, length("hello"))
+    assertEquals(0, length(""))
+}
+
+@Test fun testCharAtPos() {
+    assertEqualsStr("e", charAtPos("hello", 1))
+}
+
+@Test fun testSubstring() {
+    assertEqualsStr("ell", substring("hello", 1, 4))
+}

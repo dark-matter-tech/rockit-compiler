@@ -1,0 +1,160 @@
+// Tests for rockit.time.datetime
+import rockit.testing.probe
+import rockit.time.datetime
+
+// == Epoch Functions =========================================================
+
+@Test fun testNow() {
+    val t = now()
+    // Should be a positive number representing ms since epoch
+    assertGreaterThan(t, 0)
+}
+
+@Test fun testEpochSeconds() {
+    val s = epochSeconds()
+    // Should be roughly current time (> Jan 2025 in seconds)
+    assertGreaterThan(s, 1735689600)
+}
+
+// == Date Formatting =========================================================
+
+@Test fun testFormatDateISO() {
+    val d = mapCreate()
+    mapPut(d, "year", 2026)
+    mapPut(d, "month", 3)
+    mapPut(d, "day", 2)
+    mapPut(d, "hour", 0)
+    mapPut(d, "minute", 0)
+    mapPut(d, "second", 0)
+    assertEqualsStr("2026-03-02", formatDate(d, "YYYY-MM-DD"))
+}
+
+@Test fun testFormatDateUS() {
+    val d = mapCreate()
+    mapPut(d, "year", 2026)
+    mapPut(d, "month", 3)
+    mapPut(d, "day", 2)
+    assertEqualsStr("03/02/2026", formatDate(d, "MM/DD/YYYY"))
+}
+
+@Test fun testFormatDateEU() {
+    val d = mapCreate()
+    mapPut(d, "year", 2026)
+    mapPut(d, "month", 3)
+    mapPut(d, "day", 2)
+    assertEqualsStr("02.03.2026", formatDate(d, "DD.MM.YYYY"))
+}
+
+@Test fun testFormatTime() {
+    val d = mapCreate()
+    mapPut(d, "hour", 14)
+    mapPut(d, "minute", 5)
+    mapPut(d, "second", 9)
+    assertEqualsStr("14:05:09", formatTime(d))
+}
+
+@Test fun testFormatDateTime() {
+    val d = mapCreate()
+    mapPut(d, "year", 2026)
+    mapPut(d, "month", 1)
+    mapPut(d, "day", 15)
+    mapPut(d, "hour", 8)
+    mapPut(d, "minute", 30)
+    mapPut(d, "second", 0)
+    assertEqualsStr("2026-01-15T08:30:00", formatDateTime(d))
+}
+
+// == Leap Year ===============================================================
+
+@Test fun testLeapYearDivisibleBy4() {
+    assertTrue(isLeapYear(2024))
+    assertTrue(isLeapYear(2028))
+}
+
+@Test fun testLeapYearDivisibleBy100NotLeap() {
+    assertFalse(isLeapYear(1900))
+    assertFalse(isLeapYear(2100))
+}
+
+@Test fun testLeapYearDivisibleBy400() {
+    assertTrue(isLeapYear(2000))
+    assertTrue(isLeapYear(2400))
+}
+
+@Test fun testNotLeapYear() {
+    assertFalse(isLeapYear(2025))
+    assertFalse(isLeapYear(2023))
+}
+
+// == Days in Month ===========================================================
+
+@Test fun testDaysInMonthJan() {
+    assertEquals(31, daysInMonth(2026, 1))
+}
+
+@Test fun testDaysInMonthFebNormal() {
+    assertEquals(28, daysInMonth(2025, 2))
+}
+
+@Test fun testDaysInMonthFebLeap() {
+    assertEquals(29, daysInMonth(2024, 2))
+}
+
+@Test fun testDaysInMonthApril() {
+    assertEquals(30, daysInMonth(2026, 4))
+}
+
+@Test fun testDaysInMonthDec() {
+    assertEquals(31, daysInMonth(2026, 12))
+}
+
+@Test fun testDaysInMonthAll() {
+    // Verify all 12 months for a non-leap year
+    assertEquals(31, daysInMonth(2025, 1))
+    assertEquals(28, daysInMonth(2025, 2))
+    assertEquals(31, daysInMonth(2025, 3))
+    assertEquals(30, daysInMonth(2025, 4))
+    assertEquals(31, daysInMonth(2025, 5))
+    assertEquals(30, daysInMonth(2025, 6))
+    assertEquals(31, daysInMonth(2025, 7))
+    assertEquals(31, daysInMonth(2025, 8))
+    assertEquals(30, daysInMonth(2025, 9))
+    assertEquals(31, daysInMonth(2025, 10))
+    assertEquals(30, daysInMonth(2025, 11))
+    assertEquals(31, daysInMonth(2025, 12))
+}
+
+// == Day of Week =============================================================
+
+@Test fun testDayOfWeekKnown() {
+    // 2026-03-02 is Monday (1)
+    assertEquals(1, dayOfWeek(2026, 3, 2))
+}
+
+@Test fun testDayOfWeekSunday() {
+    // 2026-03-01 is Sunday (0)
+    assertEquals(0, dayOfWeek(2026, 3, 1))
+}
+
+@Test fun testDayOfWeekSaturday() {
+    // 2026-02-28 is Saturday (6)
+    assertEquals(6, dayOfWeek(2026, 2, 28))
+}
+
+@Test fun testDayOfWeekNewYear2000() {
+    // 2000-01-01 is Saturday (6)
+    assertEquals(6, dayOfWeek(2000, 1, 1))
+}
+
+@Test fun testDayOfWeekEpoch() {
+    // 1970-01-01 is Thursday (4)
+    assertEquals(4, dayOfWeek(1970, 1, 1))
+}
+
+// == Zero Padding ============================================================
+
+@Test fun testDtZeroPad() {
+    assertEqualsStr("03", dtZeroPad("3", 2))
+    assertEqualsStr("42", dtZeroPad("42", 2))
+    assertEqualsStr("0042", dtZeroPad("42", 4))
+}

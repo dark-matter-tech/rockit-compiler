@@ -1,0 +1,73 @@
+// Tests for rockit.core.math
+import rockit.testing.probe
+import rockit.core.math
+
+// == Integer Arithmetic ======================================================
+
+@Test fun testSquare() {
+    assertEquals(25, square(5))
+    assertEquals(0, square(0))
+    assertEquals(9, square(-3))
+}
+
+@Test fun testCube() {
+    assertEquals(27, cube(3))
+    assertEquals(0, cube(0))
+}
+
+@Test fun testPower() {
+    assertEquals(1, power(5, 0))
+    assertEquals(5, power(5, 1))
+    assertEquals(8, power(2, 3))
+    assertEquals(1024, power(2, 10))
+}
+
+@Test fun testAbs() {
+    assertEquals(5, abs(5))
+    assertEquals(5, abs(-5))
+    assertEquals(0, abs(0))
+}
+
+@Test fun testFactorial() {
+    assertEquals(1, factorial(0))
+    assertEquals(1, factorial(1))
+    assertEquals(6, factorial(3))
+    assertEquals(120, factorial(5))
+}
+
+@Test fun testGcd() {
+    assertEquals(6, gcd(12, 18))
+    assertEquals(1, gcd(7, 13))
+    assertEquals(5, gcd(0, 5))
+    assertEquals(5, gcd(5, 0))
+}
+
+@Test fun testLcm() {
+    assertEquals(36, lcm(12, 18))
+    assertEquals(91, lcm(7, 13))
+    assertEquals(0, lcm(0, 5))
+}
+
+@Test fun testClamp() {
+    assertEquals(5, clamp(5, 0, 10))
+    assertEquals(0, clamp(-5, 0, 10))
+    assertEquals(10, clamp(15, 0, 10))
+}
+
+@Test fun testSign() {
+    assertEquals(1, sign(42))
+    assertEquals(-1, sign(-42))
+    assertEquals(0, sign(0))
+}
+
+@Test fun testIsEven() {
+    assertTrue(isEven(0))
+    assertTrue(isEven(4))
+    assertFalse(isEven(3))
+}
+
+@Test fun testIsOdd() {
+    assertTrue(isOdd(1))
+    assertTrue(isOdd(3))
+    assertFalse(isOdd(4))
+}

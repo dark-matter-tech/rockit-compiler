@@ -1,0 +1,190 @@
+// Tests for rockit.encoding.xml
+import rockit.testing.probe
+import rockit.encoding.xml
+import rockit.encoding.json
+
+// == Constructors ============================================================
+
+@Test fun testXmlElement() {
+    val e = xmlElement("div")
+    assertTrue(xmlIsElement(e))
+    assertEqualsStr("div", xmlGetTag(e))
+}
+
+@Test fun testXmlText() {
+    val t = xmlText("hello")
+    assertTrue(xmlIsText(t))
+    assertEqualsStr("hello", toString(mapGet(t, "value")))
+}
+
+@Test fun testXmlCdata() {
+    val c = xmlCdata("raw content")
+    assertTrue(xmlIsCdata(c))
+}
+
+@Test fun testXmlComment() {
+    val c = xmlComment(" a comment ")
+    assertTrue(xmlIsComment(c))
+}
+
+// == Attributes ==============================================================
+
+@Test fun testSetAndGetAttr() {
+    val e = xmlElement("input")
+    xmlSetAttr(e, "type", "text")
+    assertEqualsStr("text", xmlGetAttr(e, "type"))
+    assertTrue(xmlHasAttr(e, "type"))
+    assertFalse(xmlHasAttr(e, "missing"))
+}
+
+@Test fun testGetAttrDefault() {
+    val e = xmlElement("div")
+    assertEqualsStr("", xmlGetAttr(e, "class"))
+}
+
+// == Children ================================================================
+
+@Test fun testAppendAndGetChildren() {
+    val parent = xmlElement("ul")
+    val child1 = xmlElement("li")
+    val child2 = xmlElement("li")
+    xmlAppendChild(parent, child1)
+    xmlAppendChild(parent, child2)
+    val children = xmlGetChildren(parent)
+    assertEquals(2, listSize(children))
+}
+
+@Test fun testGetChildrenByTag() {
+    val parent = xmlElement("root")
+    xmlAppendChild(parent, xmlElement("item"))
+    xmlAppendChild(parent, xmlElement("other"))
+    xmlAppendChild(parent, xmlElement("item"))
+    val items = xmlGetChildrenByTag(parent, "item")
+    assertEquals(2, listSize(items))
+}
+
+@Test fun testGetText() {
+    val e = xmlElement("p")
+    xmlAppendChild(e, xmlText("Hello "))
+    xmlAppendChild(e, xmlText("World"))
+    assertEqualsStr("Hello World", xmlGetText(e))
+}
+
+// == Parsing =================================================================
+
+@Test fun testParseSimple() {
+    val doc = xmlParse("<root>hello</root>")
+    assertTrue(xmlIsElement(doc))
+    assertEqualsStr("root", xmlGetTag(doc))
+    assertEqualsStr("hello", xmlGetText(doc))
+}
+
+@Test fun testParseSelfClosing() {
+    val doc = xmlParse("<br/>")
+    assertTrue(xmlIsElement(doc))
+    assertEqualsStr("br", xmlGetTag(doc))
+    assertEquals(0, listSize(xmlGetChildren(doc)))
+}
+
+@Test fun testParseWithAttributes() {
+    val doc = xmlParse("<img src=\"photo.jpg\" alt=\"A photo\"/>")
+    assertEqualsStr("photo.jpg", xmlGetAttr(doc, "src"))
+    assertEqualsStr("A photo", xmlGetAttr(doc, "alt"))
+}
+
+@Test fun testParseNested() {
+    val doc = xmlParse("<root><child>text</child></root>")
+    val children = xmlGetChildren(doc)
+    assertEquals(1, listSize(children))
+    val child = listGet(children, 0)
+    assertEqualsStr("child", xmlGetTag(child))
+    assertEqualsStr("text", xmlGetText(child))
+}
+
+@Test fun testParseCdata() {
+    val doc = xmlParse("<root><![CDATA[<raw>&data]]></root>")
+    assertEqualsStr("<raw>&data", xmlGetText(doc))
+}
+
+@Test fun testParseComment() {
+    val doc = xmlParse("<root><!-- comment -->text</root>")
+    assertEqualsStr("text", xmlGetText(doc))
+}
+
+// == Entity Handling =========================================================
+
+@Test fun testEntityDecoding() {
+    val doc = xmlParse("<root>&amp; &lt; &gt; &quot; &apos;</root>")
+    assertEqualsStr("& < > \" '", xmlGetText(doc))
+}
+
+// == Escaping ================================================================
+
+@Test fun testEscapeText() {
+    assertEqualsStr("&amp; &lt; &gt;", xmlEscapeText("& < >"))
+}
+
+@Test fun testEscapeAttr() {
+    val escaped = xmlEscapeAttr("a\"b'c&d")
+    assertStringContains(escaped, "&quot;")
+    assertStringContains(escaped, "&apos;")
+    assertStringContains(escaped, "&amp;")
+}
+
+// == Stringify ===============================================================
+
+@Test fun testStringifySimple() {
+    val e = xmlElement("p")
+    xmlAppendChild(e, xmlText("hello"))
+    assertEqualsStr("<p>hello</p>", xmlStringify(e))
+}
+
+@Test fun testStringifySelfClosing() {
+    val e = xmlElement("br")
+    assertEqualsStr("<br/>", xmlStringify(e))
+}
+
+@Test fun testStringifyWithAttrs() {
+    val e = xmlElement("a")
+    xmlSetAttr(e, "href", "http://example.com")
+    xmlAppendChild(e, xmlText("click"))
+    assertStringContains(xmlStringify(e), "href=\"http://example.com\"")
+    assertStringContains(xmlStringify(e), "click</a>")
+}
+
+@Test fun testStringifyCdata() {
+    val c = xmlCdata("raw")
+    assertEqualsStr("<![CDATA[raw]]>", xmlStringify(c))
+}
+
+@Test fun testStringifyComment() {
+    val c = xmlComment(" note ")
+    assertEqualsStr("<!-- note -->", xmlStringify(c))
+}
+
+// == Roundtrip ===============================================================
+
+@Test fun testRoundtrip() {
+    val xml = "<root><item id=\"1\">Hello</item></root>"
+    val parsed = xmlParse(xml)
+    val output = xmlStringify(parsed)
+    assertEqualsStr(xml, output)
+}
+
+// == XML <-> JSON Bridge =====================================================
+
+@Test fun testXmlToJson() {
+    val xml = xmlParse("<item>text</item>")
+    val json = xmlToJson(xml)
+    assertTrue(jsonIsObject(json))
+    assertEqualsStr("element", jsonGetString(jsonObjectGet(json, "type")))
+    assertEqualsStr("item", jsonGetString(jsonObjectGet(json, "tag")))
+}
+
+@Test fun testJsonToXml() {
+    val json = jsonObject()
+    jsonObjectPut(json, "name", jsonString("Rockit"))
+    val xml = jsonToXml(json, "root")
+    assertTrue(xmlIsElement(xml))
+    assertEqualsStr("root", xmlGetTag(xml))
+}

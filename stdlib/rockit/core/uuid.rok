@@ -1,0 +1,59 @@
+// rockit.core.uuid — UUID v4 generation
+//
+// Generates version 4 (random) Universally Unique Identifiers per RFC 9562.
+// Uses the randomInt builtin for cryptographic-quality random bytes.
+//
+// Standards: RFC 9562 — Universally Unique Identifiers (supersedes RFC 4122)
+//
+// Usage:
+//   import rockit.core.uuid
+//   val id = uuid4()  // "550e8400-e29b-41d4-a716-446655440000"
+
+// == Generation ==============================================================
+
+// Generate a random UUID v4 string
+fun uuid4(): String {
+    // Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    // where y is one of 8, 9, a, b (variant 1)
+    var result: String = ""
+    var i: Int = 0
+    while (i < 16) {
+        var b: Int = randomInt(256)
+
+        // Set version field (byte 6): high nibble = 4
+        if (i == 6) {
+            b = 64 + (b - (b / 16) * 16)  // 0x40 | (b & 0x0F)
+        }
+        // Set variant field (byte 8): high 2 bits = 10
+        if (i == 8) {
+            b = 128 + (b - (b / 64) * 64)  // 0x80 | (b & 0x3F)
+        }
+
+        result = stringConcat(result, uuidHexByte(b))
+
+        // Add dashes after bytes 3, 5, 7, 9
+        if (i == 3) { result = stringConcat(result, "-") }
+        if (i == 5) { result = stringConcat(result, "-") }
+        if (i == 7) { result = stringConcat(result, "-") }
+        if (i == 9) { result = stringConcat(result, "-") }
+
+        i = i + 1
+    }
+
+    return result
+}
+
+// == Helpers =================================================================
+
+// Convert a byte (0-255) to a 2-character hex string
+fun uuidHexByte(b: Int): String {
+    val hi = b / 16
+    val lo = b - hi * 16
+    return stringConcat(uuidHexDigit(hi), uuidHexDigit(lo))
+}
+
+// Convert a nibble (0-15) to a single hex character
+fun uuidHexDigit(n: Int): String {
+    if (n < 10) { return intToChar(48 + n) }   // '0'-'9'
+    return intToChar(97 + n - 10)                // 'a'-'f'
+}
