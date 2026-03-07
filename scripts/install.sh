@@ -208,8 +208,8 @@ install_binary() {
         sudo cp "${extracted}/bin/fuel" "${BIN_DIR}/fuel"
         sudo chmod +x "${BIN_DIR}/rockit" "${BIN_DIR}/fuel"
         sudo cp "${extracted}/share/rockit/rockit_runtime.o" "${SHARE_DIR}/rockit_runtime.o"
-        if [ -d "${extracted}/share/rockit/stdlib" ]; then
-            sudo cp -r "${extracted}/share/rockit/stdlib" "${SHARE_DIR}/stdlib"
+        if [ -d "${extracted}/share/rockit/launchpad" ]; then
+            sudo cp -r "${extracted}/share/rockit/launchpad" "${SHARE_DIR}/launchpad"
         fi
 
         rm -rf "$tmp"
@@ -260,7 +260,7 @@ install_source() {
     fi
     # Install standard library
     if [ -d launchpad ]; then
-        sudo cp -r src/launchpad "${SHARE_DIR}/stdlib"
+        sudo cp -r src/launchpad "${SHARE_DIR}/launchpad"
     fi
 
     rm -rf "$tmp"

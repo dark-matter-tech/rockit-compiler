@@ -13,7 +13,7 @@ authenticated.
 |--------|---------|-----------------|
 | Tampered compiler binary | Attacker modifies `rockit` binary in distribution | Layers 1-3 |
 | Compromised build environment | CI runner injects backdoor during build | Layers 4-5 |
-| Supply chain attack on dependencies | Malicious stdlib or Fuel package | Layers 2, 7 |
+| Supply chain attack on dependencies | Malicious launchpad or Fuel package | Layers 2, 7 |
 | Trojan compiler (Thompson attack) | Compiler inserts backdoor not present in source | Layers 4-5 |
 | Tampered bytecode in transit | Man-in-the-middle modifies .rokb served to Nova | Layers 6, 9 |
 | Compromised signing key | Attacker signs malicious release with stolen key | Layer 8 |
@@ -61,7 +61,7 @@ every file in the distribution:
 sha256:abc123...  bin/rockit
 sha256:def456...  bin/fuel
 sha256:789abc...  share/rockit/rockit_runtime.o
-sha256:012def...  share/rockit/stdlib/rockit/core/collections.rok
+sha256:012def...  share/rockit/launchpad/rockit/core/collections.rok
 ...
 ```
 
