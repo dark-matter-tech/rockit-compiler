@@ -37,21 +37,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ gitea.token }}
 
-      - name: Clone Stage 0
+      - name: Clone Stage 0 (bootstrap compiler)
         run: |
-          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITHUB_TOKEN}" > ~/.netrc
-          chmod 600 ~/.netrc
-          git clone --depth 1 --recurse-submodules "${GITHUB_SERVER_URL}/Dark-Matter/moon.git" /tmp/moon
-        env:
-          GITHUB_TOKEN: ${{ gitea.token }}
+          git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
 
       - name: Build Stage 0
-        run: cd /tmp/moon/RockitCompiler && swift build -c release
+        run: cd /tmp/stage0 && swift build -c release
 
       - name: Build Stage 1
         run: |
           bash src/build.sh
-          /tmp/moon/RockitCompiler/.build/release/rockit build-native src/command.rok
+          /tmp/stage0/.build/release/rockit build-native src/command.rok
 
       - name: Build runtime
         run: bash runtime/rockit/build.sh

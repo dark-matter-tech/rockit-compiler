@@ -37,20 +37,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Clone Stage 0 (Swift compiler)
+      - name: Clone Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 --recurse-submodules "${GITHUB_SERVER_URL}/Dark-Matter/moon.git" /tmp/moon
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
 
       - name: Build Stage 0
         run: |
-          cd /tmp/moon/RockitCompiler
+          cd /tmp/stage0
           swift build -c release
 
       - name: Build Stage 1 from source
         run: |
-          ROCKIT=/tmp/moon/RockitCompiler/.build/release/rockit
+          ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
           $ROCKIT build-native src/command.rok
 
@@ -101,17 +99,17 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Clone Stage 0 (Swift compiler)
-        run: git clone --depth 1 --recurse-submodules https://github.com/Dark-Matter/moon.git /tmp/moon
+      - name: Clone Stage 0 (bootstrap compiler)
+        run: git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
 
       - name: Build Stage 0
         run: |
-          cd /tmp/moon/RockitCompiler
+          cd /tmp/stage0
           swift build -c release
 
       - name: Build Stage 1
         run: |
-          ROCKIT=/tmp/moon/RockitCompiler/.build/release/rockit
+          ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
           $ROCKIT build-native src/command.rok
 
