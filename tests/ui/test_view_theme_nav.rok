@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 view Greeting(name: String) {
     val msg = stringConcat("view: Hello, ", name)

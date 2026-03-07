@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 fun add(a: Int, b: Int = 10): Int {
     return a + b

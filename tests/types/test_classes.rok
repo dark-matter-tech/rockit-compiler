@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 data class Point(x: Int, y: Int)
 

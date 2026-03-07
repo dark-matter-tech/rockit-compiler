@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 data class TreeNode(val left: Int, val right: Int)
 

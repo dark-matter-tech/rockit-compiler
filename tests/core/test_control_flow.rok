@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 fun abs(n: Int): Int {
     if (n < 0) {

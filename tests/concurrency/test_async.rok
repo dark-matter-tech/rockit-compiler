@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 suspend fun fetchPayload(): String {
     return "network payload"

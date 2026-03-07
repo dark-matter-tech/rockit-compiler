@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 actor Counter {
     var count: Int = 0

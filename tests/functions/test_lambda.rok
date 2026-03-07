@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 fun applyOp(a: Int, b: Int, op: (Int, Int) -> Int): Int {
     return op(a, b)

@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 
 @Test
 fun testNullCheck() {

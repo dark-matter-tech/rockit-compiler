@@ -1,4 +1,4 @@
-import rockit.testing.probe
+import rockit.test.probe
 import lib.math_utils
 
 @Test
