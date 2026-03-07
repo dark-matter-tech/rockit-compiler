@@ -65,10 +65,11 @@ jobs:
         run: bash runtime/rockit/build.sh
 
       - name: Clone and build Fuel
+        if: env.FUEL_TOKEN != ''
         run: |
-          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${FUEL_TOKEN}" > ~/.netrc
+          echo "machine rustygits.com login x-access-token password ${FUEL_TOKEN}" > ~/.netrc
           chmod 600 ~/.netrc
-          git clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/fuel.git" /tmp/fuel
+          git clone --depth 1 --branch develop https://rustygits.com/Dark-Matter/fuel.git /tmp/fuel
           src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel --runtime-path runtime/rockit_runtime.o
         env:
           FUEL_TOKEN: ${{ secrets.FUEL_TOKEN }}
@@ -87,15 +88,18 @@ jobs:
           STAGING="dist/${ARCHIVE}/rockit"
           mkdir -p "${STAGING}/bin" "${STAGING}/share/rockit"
           cp src/command "${STAGING}/bin/rockit"
-          cp /tmp/fuel/fuel "${STAGING}/bin/fuel"
-          chmod +x "${STAGING}/bin/rockit" "${STAGING}/bin/fuel"
+          chmod +x "${STAGING}/bin/rockit"
+          if [ -f /tmp/fuel/fuel ]; then
+            cp /tmp/fuel/fuel "${STAGING}/bin/fuel"
+            chmod +x "${STAGING}/bin/fuel"
+          fi
           cp runtime/rockit_runtime.o "${STAGING}/share/rockit/"
           cp -r launchpad "${STAGING}/share/rockit/launchpad"
 
           # Sign binaries with GPG if key is available
           if [ -n "${GPG_KEY_ID:-}" ]; then
             bash scripts/sign.sh "${STAGING}/bin/rockit" gpg || true
-            bash scripts/sign.sh "${STAGING}/bin/fuel" gpg || true
+            [ -f "${STAGING}/bin/fuel" ] && bash scripts/sign.sh "${STAGING}/bin/fuel" gpg || true
           fi
 
           # Generate manifest (after signing, so hashes reflect signed state)
