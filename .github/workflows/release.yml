@@ -122,24 +122,23 @@ jobs:
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Upload release
+      - name: Create GitHub release and upload
         run: |
-          GITEA_URL="${GITHUB_SERVER_URL}"
-          API="${GITEA_URL}/api/v1"
-          # Create release
+          # Create release via GitHub API
           RELEASE_ID=$(curl -s -X POST \
-            -H "Authorization: token ${FUEL_TOKEN}" \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
             -H "Content-Type: application/json" \
-            "${API}/repos/${GITHUB_REPOSITORY}/releases" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases" \
             -d "{\"tag_name\": \"${TAG}\", \"name\": \"Rockit ${TAG}\", \"body\": \"Release ${TAG}\"}" | jq -r '.id')
+          echo "Release ID: $RELEASE_ID"
           # Upload tarball
           curl -s -X POST \
-            -H "Authorization: token ${FUEL_TOKEN}" \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
             -H "Content-Type: application/gzip" \
             --data-binary "@dist/${ARCHIVE}" \
-            "${API}/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${ARCHIVE}"
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${ARCHIVE}"
         env:
-          FUEL_TOKEN: ${{ secrets.FUEL_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   build-macos:
     name: Build macOS arm64
