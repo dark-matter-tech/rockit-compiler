@@ -65,7 +65,7 @@ jobs:
             [ -f "$f" ] || continue
             name=$(basename "$f" .rok)
             TOTAL=$((TOTAL + 1))
-            if $STAGE1 build-native "$f" -o "examples/$name" --runtime-path runtime/rockit_runtime.o --lib-path stdlib --target-triple $TRIPLE > /tmp/build_log 2>&1; then
+            if $STAGE1 build-native "$f" -o "examples/$name" --runtime-path runtime/rockit_runtime.o --lib-path launchpad --target-triple $TRIPLE > /tmp/build_log 2>&1; then
               "examples/$name" > /dev/null 2>&1 || true
               PASS=$((PASS + 1))
             else

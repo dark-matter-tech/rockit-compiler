@@ -259,8 +259,8 @@ install_source() {
         sudo cp runtime/rockit_runtime.o "${SHARE_DIR}/rockit_runtime.o"
     fi
     # Install standard library
-    if [ -d src/stdlib ]; then
-        sudo cp -r src/stdlib "${SHARE_DIR}/stdlib"
+    if [ -d launchpad ]; then
+        sudo cp -r src/launchpad "${SHARE_DIR}/stdlib"
     fi
 
     rm -rf "$tmp"

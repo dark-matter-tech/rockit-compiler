@@ -91,7 +91,7 @@ jobs:
           cp /tmp/fuel/fuel "${STAGING}/bin/fuel"
           chmod +x "${STAGING}/bin/rockit" "${STAGING}/bin/fuel"
           cp runtime/rockit_runtime.o "${STAGING}/share/rockit/"
-          cp -r stdlib "${STAGING}/share/rockit/stdlib"
+          cp -r launchpad "${STAGING}/share/rockit/stdlib"
 
           # Sign binaries with GPG if key is available
           if [ -n "${GPG_KEY_ID:-}" ]; then
@@ -184,7 +184,7 @@ jobs:
           cp src/command "${STAGING}/bin/rockit"
           chmod +x "${STAGING}/bin/rockit"
           cp runtime/rockit_runtime.o "${STAGING}/share/rockit/"
-          cp -r stdlib "${STAGING}/share/rockit/stdlib"
+          cp -r launchpad "${STAGING}/share/rockit/stdlib"
 
           # macOS code signing + notarization
           if [ -n "${APPLE_IDENTITY:-}" ]; then

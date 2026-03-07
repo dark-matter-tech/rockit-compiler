@@ -99,7 +99,7 @@ cp "$COMPILER"                    "${STAGING}/bin/rockit"
 cp "${FUEL_SRC}/fuel"             "${STAGING}/bin/fuel"
 cp "$RUNTIME"                     "${STAGING}/share/rockit/rockit_runtime.c"
 cp "${PROJECT_DIR}/runtime/rockit_runtime.h" "${STAGING}/share/rockit/rockit_runtime.h"
-cp -r "${PROJECT_DIR}/src/stdlib"          "${STAGING}/share/rockit/stdlib"
+cp -r "${PROJECT_DIR}/launchpad"          "${STAGING}/share/rockit/stdlib"
 chmod +x "${STAGING}/bin/rockit" "${STAGING}/bin/fuel"
 
 # Clean up temp clone

@@ -30,7 +30,7 @@ src/command version
 
 ```
 src/            Stage 1 compiler source (.rok)
-stdlib/         Standard library (submodule: launchpad)
+launchpad/      Standard library (git submodule)
 runtime/        C and Rockit runtime
 scripts/        Install, package, and signing scripts
 tests/          Integration test suites
