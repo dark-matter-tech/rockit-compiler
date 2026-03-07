@@ -1,0 +1,6 @@
+# Tell GitHub linguist that .rok files are Rockit (Kotlin-like syntax)
+*.rok linguist-language=Kotlin
+*.rok linguist-detectable=true
+
+# Runtime is not the primary language
+runtime/** linguist-vendored=true
