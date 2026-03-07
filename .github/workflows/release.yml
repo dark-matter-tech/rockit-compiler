@@ -1,10 +1,8 @@
 name: Release
 
 on:
-  push:
-    branches: [staging]
-    tags:
-      - 'v*'
+  # Releases are triggered from Gitea and mirrored to GitHub automatically.
+  # This workflow is for manual fallback only.
   workflow_dispatch:
     inputs:
       version:

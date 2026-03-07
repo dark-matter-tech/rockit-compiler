@@ -117,3 +117,31 @@ jobs:
             "${API}/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${ARCHIVE}"
         env:
           FUEL_TOKEN: ${{ secrets.FUEL_TOKEN }}
+
+      - name: Mirror to GitHub
+        if: env.GITHUB_PAT != ''
+        run: |
+          # Push code + tags
+          git remote add github https://x-access-token:${GITHUB_PAT}@github.com/dark-matter-tech/rockit-compiler.git
+          git push github --all --force
+          git push github --tags --force
+
+          # Create matching GitHub release
+          GH_RELEASE_ID=$(curl -s -X POST \
+            -H "Authorization: token ${GITHUB_PAT}" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/dark-matter-tech/rockit-compiler/releases" \
+            -d "{\"tag_name\": \"${TAG}\", \"name\": \"Rockit ${TAG}\", \"body\": \"Release ${TAG}\"}" | jq -r '.id')
+
+          if [ -n "$GH_RELEASE_ID" ] && [ "$GH_RELEASE_ID" != "null" ]; then
+            curl -s -X POST \
+              -H "Authorization: token ${GITHUB_PAT}" \
+              -H "Content-Type: application/gzip" \
+              --data-binary "@dist/${ARCHIVE}" \
+              "https://uploads.github.com/repos/dark-matter-tech/rockit-compiler/releases/${GH_RELEASE_ID}/assets?name=${ARCHIVE}"
+            echo "Mirrored release ${TAG} to GitHub"
+          else
+            echo "WARNING: Failed to create GitHub release"
+          fi
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
