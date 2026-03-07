@@ -2,6 +2,7 @@ name: Release
 
 on:
   push:
+    branches: [staging]
     tags:
       - 'v*'
   workflow_dispatch:
@@ -46,7 +47,7 @@ jobs:
           echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITHUB_TOKEN}" > ~/.netrc
           chmod 600 ~/.netrc
           git clone --depth 1 --recurse-submodules --branch "${TAG}" "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" . || \
-          git clone --depth 1 --recurse-submodules --branch master "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
+          git clone --depth 1 --recurse-submodules --branch staging "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
         env:
           GITHUB_TOKEN: ${{ github.token }}
 

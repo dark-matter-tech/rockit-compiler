@@ -8,12 +8,12 @@ The Rockit language compiler. Self-hosting — Rockit compiles itself.
 
 **macOS / Linux:**
 ```bash
-curl -fsSL https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/master/scripts/install.sh | bash
+curl -fsSL https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/staging/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-iwr -useb https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/master/scripts/install.ps1 | iex
+iwr -useb https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/staging/scripts/install.ps1 | iex
 ```
 
 ## Build from Source

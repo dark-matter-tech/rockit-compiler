@@ -2,7 +2,7 @@
 # Dark Matter Tech
 #
 # Usage (PowerShell):
-#   irm https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/master/scripts/install.ps1 | iex
+#   irm https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/staging/scripts/install.ps1 | iex
 #
 # Or run locally:
 #   .\install.ps1
@@ -17,7 +17,7 @@ $INSTALL_DIR = "$env:LOCALAPPDATA\Rockit\bin"
 $SHARE_DIR = "$env:LOCALAPPDATA\Rockit\share\rockit"
 
 # Signing key URL
-$SIGNING_KEY_URL = "$GITEA/$REPO/raw/branch/master/keys/darkmatter-release.asc"
+$SIGNING_KEY_URL = "$GITEA/$REPO/raw/branch/staging/keys/darkmatter-release.asc"
 
 # ---------------------------------------------------------------------------
 # Helpers
