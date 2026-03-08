@@ -37,8 +37,10 @@ jobs:
 
       - name: Clone and build Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          git clone --depth 1 "https://x-access-token:${GITHUB_TOKEN}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release
+        env:
+          GITHUB_TOKEN: ${{ gitea.token }}
 
       - name: Build Stage 1
         run: |
