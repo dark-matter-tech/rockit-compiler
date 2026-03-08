@@ -72,7 +72,7 @@ git clone --recurse-submodules https://rustygits.com/Dark-Matter/rockit-compiler
 cd rockit-compiler
 
 # 2. Clone and build the Stage 0 bootstrap compiler (Swift)
-git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
+git clone --depth 1 https://github.com/dark-matter-tech/rockit-booster.git /tmp/stage0
 cd /tmp/stage0 && swift build -c release
 cd -
 
@@ -332,7 +332,7 @@ Continuous integration runs on both Gitea (primary) and GitHub (mirror):
 
 The CI pipeline:
 
-1. Builds the Stage 0 bootstrap compiler from [dark-matter-tech/rockit-lang-bootstrap-compiler](https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler)
+1. Builds the Stage 0 bootstrap compiler from [dark-matter-tech/rockit-booster](https://github.com/dark-matter-tech/rockit-booster)
 2. Concatenates Stage 1 source modules via `build.sh`
 3. Compiles Stage 1 using Stage 0
 4. Builds the runtime
@@ -348,7 +348,7 @@ The Rockit toolchain spans multiple repositories:
 | Repository | Description |
 |------------|-------------|
 | [Dark-Matter/rockit-compiler](https://rustygits.com/Dark-Matter/rockit-compiler) | This repo -- self-hosting compiler, runtime, tests, benchmarks |
-| [dark-matter-tech/rockit-lang-bootstrap-compiler](https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler) | Stage 0 bootstrap compiler (Swift) |
+| [dark-matter-tech/rockit-booster](https://github.com/dark-matter-tech/rockit-booster) | Stage 0 bootstrap compiler (Swift) |
 | [dark-matter-tech/launchpad](https://github.com/dark-matter-tech/launchpad) | Standard library (15 modules, included as git submodule) |
 | [Dark-Matter/fuel](https://rustygits.com/Dark-Matter/fuel) | Package manager |
 

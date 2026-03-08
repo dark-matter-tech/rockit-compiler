@@ -51,7 +51,7 @@ jobs:
 
       - name: Clone and build Stage 0
         run: |
-          git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
+          git clone --depth 1 https://github.com/dark-matter-tech/rockit-booster.git /tmp/stage0
           cd /tmp/stage0 && swift build -c release
 
       - name: Build Stage 1
@@ -156,7 +156,7 @@ jobs:
           fi
 
       - name: Clone and build Stage 0
-        run: git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0 && cd /tmp/stage0 && swift build -c release
+        run: git clone --depth 1 https://github.com/dark-matter-tech/rockit-booster.git /tmp/stage0 && cd /tmp/stage0 && swift build -c release
 
       - name: Build Stage 1
         run: |

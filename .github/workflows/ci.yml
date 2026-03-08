@@ -39,7 +39,7 @@ jobs:
 
       - name: Clone Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
+          git clone --depth 1 https://github.com/dark-matter-tech/rockit-booster.git /tmp/stage0
 
       - name: Build Stage 0
         run: |
@@ -100,7 +100,7 @@ jobs:
           submodules: recursive
 
       - name: Clone Stage 0 (bootstrap compiler)
-        run: git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
+        run: git clone --depth 1 https://github.com/dark-matter-tech/rockit-booster.git /tmp/stage0
 
       - name: Build Stage 0
         run: |
