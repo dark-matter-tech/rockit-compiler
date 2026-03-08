@@ -1,0 +1,32 @@
+name: Update Launchpad
+
+on:
+  repository_dispatch:
+    types: [launchpad-updated]
+
+jobs:
+  update-submodule:
+    name: Update launchpad submodule
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Update launchpad to latest staging
+        run: |
+          cd launchpad
+          git fetch origin staging
+          git checkout origin/staging
+          cd ..
+          git add launchpad
+          if git diff --cached --quiet; then
+            echo "Launchpad already up to date"
+          else
+            git config user.name "rockit-ci"
+            git config user.email "ci@darkmatter.tech"
+            git commit -m "Update launchpad submodule to latest staging"
+            git push origin master
+            echo "Submodule updated"
+          fi
