@@ -10,12 +10,18 @@ jobs:
   linux:
     name: Linux x86_64
     runs-on: ubuntu-22.04
-    container: rustygits.com/dark-matter/rockit-stage0:latest
+    container: swift:5.10.1-jammy
     defaults:
       run:
         shell: bash
 
     steps:
+      - name: Install dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git libssl-dev pkg-config curl ca-certificates clang lld
+          apt-get clean && rm -rf /var/lib/apt/lists/*
+
       - name: Checkout
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -26,10 +32,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ gitea.token }}
 
+      - name: Clone and build Stage 0
+        run: |
+          git clone --depth 1 "https://x-access-token:${GITEA_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          cd /tmp/stage0 && swift build -c release
+        env:
+          GITEA_PAT: ${{ secrets.GITEAPAT }}
+
       - name: Build Stage 1
         run: |
           bash src/build.sh
-          rockit-stage0 build-native src/command.rok
+          /tmp/stage0/.build/release/rockit build-native src/command.rok
 
       - name: Build runtime
         run: bash runtime/rockit/build.sh
