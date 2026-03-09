@@ -1,376 +1,852 @@
 # Rockit Compiler
 
-The self-hosting compiler for the Rockit programming language. Rockit is a compiled, statically-typed, memory-safe language designed to replace JavaScript, HTML, CSS, and the DOM as the foundational technology of the web platform. Developed by Dark Matter Tech.
+![CI](https://github.com/dark-matter-tech/rockit/actions/workflows/ci.yml/badge.svg)
 
-**Status:** All compiler phases complete. Self-hosting bootstrap verified (Stage 2 == Stage 3 bytecode). Competitive with Go on compute benchmarks, faster than Node.js across the board.
+The Rockit language compiler. Self-hosting — Rockit compiles itself.
 
-## Table of Contents
+> **Status:** All phases complete. 542 tests passing. Self-hosting bootstrap verified (Stage 2 == Stage 3). Runtime rewritten in Rockit.
 
-- [Install](#install)
-- [Build from Source](#build-from-source)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-- [Compiler Pipeline](#compiler-pipeline)
-- [Standard Library](#standard-library)
-- [Runtime](#runtime)
-- [Benchmarks](#benchmarks)
-- [Branch Strategy](#branch-strategy)
-- [CI / CD](#ci--cd)
-- [Security](#security)
-- [License](#license)
+---
 
 ## Install
 
-Install the latest release from the `staging` branch. The install scripts verify GPG signatures and SHA-256 checksums before installing.
-
-**macOS / Linux:**
-
+**macOS / Linux (one-liner):**
 ```bash
-curl -fsSL https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/staging/scripts/install.sh | bash
+curl -fsSL https://rustygits.com/Dark-Matter/moon/raw/branch/staging/RockitCompiler/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
-
 ```powershell
-iwr -useb https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/staging/scripts/install.ps1 | iex
+iwr -useb https://rustygits.com/Dark-Matter/moon/raw/branch/staging/RockitCompiler/scripts/install.ps1 | iex
 ```
 
-**Custom install prefix:**
+The installer downloads a prebuilt binary if available, or builds from source as a fallback. The release includes:
 
+- `rockit` — compiler and build tool
+- `fuel` — package manager
+- Standard library (22 modules: `rockit.core.*`, `rockit.encoding.*`, `rockit.filesystem.*`, `rockit.networking.*`, `rockit.security.*`, `rockit.testing.*`, `rockit.time.*`)
+- C runtime (`rockit_runtime.c`)
+
+**Update:**
 ```bash
-ROCKIT_PREFIX=$HOME/.local curl -fsSL https://rustygits.com/Dark-Matter/rockit-compiler/raw/branch/staging/scripts/install.sh | bash
+rockit update
 ```
 
-The default install prefix is `/usr/local`. The compiler binary is placed in `$PREFIX/bin/rockit`, the runtime in `$PREFIX/share/rockit/rockit_runtime.o`, and the standard library in `$PREFIX/share/rockit/stdlib/`.
+---
 
-### Verify Installation
-
-After installing, confirm the compiler is working:
+## Build
 
 ```bash
-rockit version
+# Debug build
+swift build
+
+# Release build
+swift build -c release
+
+# Using Make
+make build     # debug
+make release   # release
 ```
 
-This prints the version, git commit, source hash, build timestamp, and target platform.
-
-## Build from Source
-
-Building from source requires two steps: first build the Stage 0 bootstrap compiler (written in Swift), then use it to compile the Stage 1 compiler (written in Rockit).
-
-### Prerequisites
-
-- Swift 5.9+ (for building Stage 0)
-- clang (for compiling LLVM IR to native code)
-- LLVM (provides the linker and code generation backend)
-- Git (with submodule support)
-
-### Steps
+## Run
 
 ```bash
-# 1. Clone this repo with submodules (stdlib lives in the launchpad submodule)
-git clone --recurse-submodules https://rustygits.com/Dark-Matter/rockit-compiler.git
-cd rockit-compiler
+# Run a .rok file (bytecode)
+rockit run examples/hello.rok
 
-# 2. Clone and build the Stage 0 bootstrap compiler (Swift)
-git clone --depth 1 https://github.com/dark-matter-tech/rockit-booster.git /tmp/stage0
-cd /tmp/stage0 && swift build -c release
-cd -
+# Compile to native binary
+rockit build-native examples/hello.rok
 
-# 3. Concatenate the Stage 1 source modules into command.rok
-bash src/build.sh
+# Compile to native and run
+rockit run-native examples/hello.rok
 
-# 4. Use Stage 0 to compile Stage 1
-/tmp/stage0/.build/release/rockit build-native src/command.rok
+# Compile without the standard runtime (freestanding mode)
+rockit build-native examples/test_freestanding.rok --no-runtime
 
-# 5. Build the runtime
-bash runtime/rockit/build.sh
+# Parse and dump AST
+rockit parse examples/hello.rok --dump-ast
 
-# 6. Verify the compiler works
-src/command version
-```
-
-### Bootstrap Verification
-
-To verify self-hosting, confirm that the compiler can compile itself and produce identical output:
-
-```bash
-# Stage 1 compiles itself -> Stage 2
-src/command build-native src/command.rok -o /tmp/stage2 --runtime-path runtime/rockit_runtime.o
-
-# Compare bytecode: Stage 2 compiling itself must match Stage 1 compiling itself
-src/command compile src/command.rok -o /tmp/stage2.rokb
-/tmp/stage2 compile src/command.rok -o /tmp/stage3.rokb
-diff /tmp/stage2.rokb /tmp/stage3.rokb && echo "Bootstrap verified: Stage 2 == Stage 3"
-```
-
-## Usage
-
-```bash
-# Compile a Rockit program to a native binary
-src/command build-native program.rok -o program --runtime-path runtime/rockit_runtime.o --lib-path launchpad
+# Type-check
+rockit check examples/hello.rok
 
 # Compile to bytecode
-src/command compile program.rok -o program.rokb
+rockit build examples/hello.rok
 
-# Emit LLVM IR (useful for debugging codegen)
-src/command compile program.rok --emit-llvm -o program.ll
+# Emit LLVM IR
+rockit emit-llvm examples/hello.rok
 
-# Print version and build metadata
-src/command version
+# Start REPL
+rockit launch
+
+# Create a new project
+rockit init myproject
+
+# Run tests (recursive discovery in tests/)
+rockit test
+
+# Run tests with filter
+rockit test --filter testAdd             # match function name
+rockit test --filter MathTests           # match class (all tests)
+rockit test --filter MathTests::testAdd  # match exact method
+
+# Run tests in watch mode (re-run on file change)
+rockit test --watch
+
+# Run a named test scheme from fuel.toml
+rockit test --scheme unit
+
+# Run benchmarks
+rockit bench                              # run all benchmarks/*.rok
+rockit bench benchmarks/bench_fib.rok     # run a single benchmark
+rockit bench benchmarks/ --save           # save results to history
+
+# Update to latest version
+rockit update
+
+# Version
+rockit version
+
+# Fuel — package management
+rockit fuel install              # Resolve and fetch all dependencies
+rockit fuel add json --git <url> # Add a dependency
+rockit fuel remove json          # Remove a dependency
+rockit fuel clean                # Clear the package cache
 ```
 
-### Example Program
+## Fuel (Package Manager)
 
-```
-// hello.rok
-package com.darkmatter.hello
+Fuel manages dependencies for Rockit projects. Dependencies are declared in `fuel.toml` and resolved automatically during builds.
 
-val greeting = "Hello"
-
-fun greet(name: String): String {
-    return "${greeting}, ${name}!"
-}
-
-fun main() {
-    println(greet("world"))
-}
-```
+### Create a project
 
 ```bash
-src/command build-native hello.rok -o hello --runtime-path runtime/rockit_runtime.o
-./hello
-# Output: Hello, world!
+rockit init myproject
+cd myproject
 ```
 
-## Project Structure
-
+This creates:
 ```
-rockit-compiler/
-|-- src/                        Stage 1 compiler source (Rockit)
-|   |-- lexer.rok               Tokenizer (130+ token types)
-|   |-- parser.rok              Recursive descent parser
-|   |-- typechecker.rok         Two-pass type checker
-|   |-- optimizer.rok           MIR optimization passes
-|   |-- llvmgen.rok             LLVM IR native codegen (CPS coroutine transform)
-|   |-- codegen.rok             Bytecode codegen + main() entry point
-|   |-- update.rok              Self-update system
-|   |-- build.sh                Concatenates modules into command.rok
-|   |-- command.rok             Concatenated compiler source (generated)
-|   +-- command                 Stage 1 native binary
-|
-|-- launchpad/                  Standard library (git submodule: dark-matter-tech/launchpad)
-|   +-- rockit/                 15 stdlib modules organized by domain
-|
-|-- runtime/
-|   |-- rockit_runtime.c        C runtime (ARC, task scheduler, event loop)
-|   |-- rockit_runtime.h        C runtime header
-|   +-- rockit/                 Modular Rockit runtime (freestanding mode)
-|       |-- memory.rok          malloc/free wrappers, ARC retain/release
-|       |-- string.rok          String struct, creation, comparison, concat
-|       |-- string_ops.rok      charAt, indexOf, substring, split, trim
-|       |-- object.rok          Object allocation, field access, type checking
-|       |-- list.rok            Dynamic array (create, append, get, set, remove)
-|       |-- map.rok             Hash table (create, put, get, keys, remove)
-|       |-- io.rok              println, print for all types
-|       |-- exception.rok       setjmp/longjmp exception handling
-|       |-- file.rok            File I/O (read, write, exists, delete)
-|       |-- process.rok         Process args, environment, system exec
-|       |-- math.rok            Math functions (sqrt, sin, cos, floor, etc.)
-|       |-- network.rok         Networking primitives
-|       |-- concurrency.rok     Task scheduler, frame alloc/free, event loop
-|       +-- build.sh            Concatenates and compiles runtime modules
-|
-|-- tests/                      Integration test suites
-|   |-- core/                   Control flow, exceptions, nullable, when, imports
-|   |-- types/                  Classes, generics, enums, sealed, interfaces, polymorphism
-|   |-- functions/              Lambdas, overloads, varargs, extensions
-|   |-- collections/            Lists, maps, strings
-|   |-- patterns/               Destructuring, when guards, range patterns
-|   |-- concurrency/            Async/await, actors
-|   |-- advanced/               Unsafe, freestanding, byte ops, function pointers
-|   |-- stdlib/                 Standard library integration tests
-|   +-- ui/                     Views, themes, navigation
-|
-|-- examples/                   55+ feature test files (test_*.rok)
-|-- benchmarks/                 Performance benchmarks vs Go, Node.js, Rust
-|   +-- run_benchmarks.sh       Automated benchmark runner (best of 3 runs)
-|
-|-- scripts/
-|   |-- install.sh              macOS/Linux installer (with GPG verification)
-|   |-- install.ps1             Windows installer (PowerShell)
-|   |-- package.sh              Release packaging (tarball + manifest + signing)
-|   +-- sign.sh                 Code signing (GPG + platform-native)
-|
-|-- keys/
-|   +-- darkmatter-release.asc  GPG public key for release verification
-|
-|-- .github/workflows/          GitHub Actions CI and release workflows
-|-- .gitea/workflows/           Gitea CI and release workflows
-|-- SECURITY.md                 Security architecture (9 layers)
-+-- VERSION                     Current version (semver)
+myproject/
+  fuel.toml         # Project manifest
+  src/main.rok      # Entry point
+  tests/test_main.rok
 ```
 
-## Compiler Pipeline
+### fuel.toml
 
-The compiler processes Rockit source through six phases, producing either bytecode or native code via LLVM IR:
+```toml
+[package]
+name = "myproject"
+version = "0.1.0"
 
-```
-.rok source
-    |
-    v
-  Lexer         130+ token types, string interpolation, nestable comments,
-                significant newlines
-    |
-    v
-  Parser        Recursive descent. All declarations (fun, class, data class,
-                sealed class, enum, interface, object, actor, view, navigation,
-                theme, package), expressions, statements, type annotations.
-    |
-    v
-  Type Checker  Type inference, null safety (String vs String?), exhaustive
-                when matching, generics with variance (in/out), suspend/await
-                validation, actor isolation.
-    |
-    v
-  MIR Lowering  AST -> MIR intermediate representation
-    |
-    v
-  Optimizer     Constant folding, dead code elimination, optimization passes
-    |
-    v
-  Codegen       Two backends:
-                  - Bytecode (.rokb) for the VM interpreter
-                  - LLVM IR -> native binary via clang (primary path)
+[dependencies]
+json = "^1.0.0"
+http = { version = "~2.1", git = "https://rustygits.com/Dark-Matter/http.git" }
+utils = { path = "../my-utils" }
+
+[test]
+directory = "tests"
+recursive = true
+timeout = 30
+
+[test.scheme.unit]
+include = ["core", "types", "functions"]
+
+[test.scheme.integration]
+include = ["stdlib"]
+
+[test.scheme.all]
+include = ["*"]
+exclude = ["advanced"]
 ```
 
-### Native Codegen
+The `[test]` section configures the test runner:
+- `directory` — test directory (default: `tests`)
+- `recursive` — scan subdirectories (default: `true`)
+- `timeout` — per-test timeout in seconds (default: `30`)
 
-The LLVM IR backend (`llvmgen.rok`) performs CPS coroutine transformation for suspend functions, emits ARC retain/release calls, and generates platform-appropriate LLVM IR. The IR is compiled to native code via clang at `-O1` optimization level.
+Test schemes define named subsets: `rockit test --scheme unit` runs only tests in the `core`, `types`, and `functions` subdirectories.
 
-### Freestanding Mode
+Dependencies can be:
+- **Simple**: `name = "version-constraint"` (requires git URL via `fuel add`)
+- **Git**: `name = { version = "constraint", git = "url" }`
+- **Local path**: `name = { path = "../relative/path" }`
 
-The `--no-runtime` flag enables freestanding compilation for systems programming. This mode provides `Ptr<T>`, `alloc`/`free`, `bitcast`, `cstr`, `unsafe` blocks, `loadByte`/`storeByte`, `extern` C functions, and `@CRepr` structs. The runtime itself is written in Rockit using this mode.
+### Version constraints
+
+| Syntax | Meaning |
+|--------|---------|
+| `^1.2.3` | Compatible — `>=1.2.3, <2.0.0` |
+| `~1.2.3` | Patch only — `>=1.2.3, <1.3.0` |
+| `>=1.0.0` | Greater or equal |
+| `1.2.3` | Exact version |
+| `*` | Any version |
+
+### Commands
+
+```bash
+# Add a dependency (git URL required until Silo registry is live)
+rockit fuel add json --git https://rustygits.com/Dark-Matter/json.git --version "^1.0"
+
+# Install all dependencies from fuel.toml
+rockit fuel install
+
+# Remove a dependency
+rockit fuel remove json
+
+# Clear the global package cache
+rockit fuel clean
+```
+
+### How it works
+
+1. `fuel.toml` is parsed for `[dependencies]`
+2. Version tags are discovered via `git ls-remote --tags`
+3. The highest version matching each constraint is selected
+4. Packages are fetched (shallow clone) into `~/.rockit/packages/`
+5. `fuel.lock` is written for reproducible builds
+6. All build commands (`build`, `run`, `build-native`, `run-native`, `check`, `emit-llvm`) automatically resolve dependencies — no separate install step required
+
+### Using dependencies
+
+Once a dependency is installed, import its modules:
+
+```kotlin
+import json
+import http.client
+
+fun main() {
+    val data = json.parse("{\"key\": \"value\"}")
+    println(data)
+}
+```
+
+---
 
 ## Standard Library
 
-The standard library ships as 15 modules in the `launchpad` submodule ([dark-matter-tech/launchpad](https://github.com/dark-matter-tech/launchpad)). Import via dot-separated paths.
+The standard library ships under `self-hosted-rockit/stdlib/rockit/` and is imported with `import rockit.<domain>.<module>`. 22 modules covering core utilities, encoding, filesystem, networking, security, testing, and time.
 
-| Module | Import Path | Key Exports |
-|--------|-------------|-------------|
-| Collections | `rockit.core.collections` | listMap, listFilter, listFold, listSort, listZip, listFlatten |
-| Math | `rockit.core.math` | gcd, lcm, clamp, lerp, sqrt, sin, cos, PI, pow, log |
-| Strings | `rockit.core.strings` | pad, repeat, join, split, reversed, replace, truncate |
-| Result | `rockit.core.result` | Success, Failure, resultOrElse, resultMap |
-| UUID | `rockit.core.uuid` | uuid4 |
-| File I/O | `rockit.io.file` | readFile, writeFile, readLines, exists, deleteFile |
-| Path | `rockit.io.path` | pathJoin, pathDir, pathBase, pathExt, pathNormalize |
-| HTTP | `rockit.net.http` | httpGet, httpPost, httpPut, httpDelete, httpRequest |
-| WebSocket | `rockit.net.ws` | wsConnect, wsSend, wsRecv, wsClose |
-| URL | `rockit.net.url` | urlParse, urlEncode, urlDecode, urlQueryParams |
-| Base64 | `rockit.encoding.base64` | base64Encode, base64Decode |
-| XML | `rockit.encoding.xml` | xmlParse, xmlStringify, xmlElement, xmlAttribute |
-| JSON | `rockit.json` | jsonParse, jsonStringify, jsonObject, jsonArray, jsonFrom |
-| DateTime | `rockit.time.datetime` | now, dateFromEpoch, formatDate, dayOfWeek |
-| Probe (testing) | `rockit.test.probe` | assertEquals, assertTrue, assertFalse, fail, and 15+ more |
+### Modules
 
-## Runtime
+| Module | Import | Description |
+|--------|--------|-------------|
+| **Core** | | |
+| `core/collections` | `import rockit.core.collections` | List utilities — map, filter, fold, sort, zip, flatten, distinct, slice |
+| `core/math` | `import rockit.core.math` | Integer and floating-point math — clamp, lerp, gcd, lcm, trig, log, exp |
+| `core/strings` | `import rockit.core.strings` | String utilities — pad, repeat, join, split, reversed, replace, truncate |
+| `core/result` | `import rockit.core.result` | Result type — Success/Failure sealed class with map, orElse |
+| `core/uuid` | `import rockit.core.uuid` | UUID v4 random generation (RFC 4122) |
+| **I/O** | | |
+| `io/file` | `import rockit.io.file` | File I/O — readFile, writeFile, readLines, writeLines, exists, deleteFile |
+| `io/path` | `import rockit.io.path` | Path manipulation — join, dir, base, ext, normalize, isAbsolute |
+| **Networking** | | |
+| `net/http` | `import rockit.net.http` | HTTP/1.1 client — GET, POST, PUT, DELETE with HTTPS fallback via curl |
+| `net/ws` | `import rockit.net.ws` | WebSocket client (RFC 6455) — connect, send, recv, close with masking |
+| `net/url` | `import rockit.net.url` | URL parser — parse, encode, decode, query params |
+| **Encoding** | | |
+| `encoding/base64` | `import rockit.encoding.base64` | Base64 encode/decode (RFC 4648) |
+| **Time** | | |
+| `time/datetime` | `import rockit.time.datetime` | Date/time — now, dateFromEpoch, formatDate, isLeapYear, dayOfWeek |
+| **Data** | | |
+| `json` | `import rockit.json` | JSON encoder/decoder — parse, stringify, pretty-print, type-safe API |
+| **Testing** | | |
+| `test/probe` | `import rockit.test.probe` | Probe test framework — 20 assertion functions for `@Test` annotated tests |
 
-The Rockit runtime provides memory management, object representation, and concurrency primitives. It is written in two layers:
+### rockit.core.collections
 
-**C runtime** (`runtime/rockit_runtime.c`): The thin C layer that interfaces with the OS. Provides the ARC reference counting core, task scheduler, event loop, and actor message dispatch wrappers.
-
-**Rockit runtime** (`runtime/rockit/`): The bulk of the runtime, written in Rockit itself using freestanding mode (`--no-runtime`). Includes string handling, object allocation, list/map data structures, file I/O, math, exception handling, and concurrency primitives. Compiled to a linkable object file (`rockit_runtime.o`) that is linked into every Rockit program.
-
-### Key Runtime Features
-
-- **ARC memory management** -- Automatic reference counting with compile-time cycle analysis. Deterministic deallocation with no garbage collector overhead. Immortal string literals (zero malloc for constants). Object pooling for reduced allocation pressure.
-- **Coroutine scheduler** -- CPS-transformed suspend functions run as state machines on a cooperative scheduler. Concurrent blocks use an event loop with join counters.
-- **Actor message dispatch** -- Actor declarations compile as classes with mailbox-based message routing. Thread-safe by construction.
-- **Platform bridge** -- `@Capability` annotations declare platform capabilities. `extern` functions link to C libraries.
-
-## Benchmarks
-
-The `benchmarks/` directory contains equivalent implementations in Rockit, Go, Node.js, and Rust across 10 benchmark programs: fibonacci, tight loop, object allocation, string concatenation, sieve of Eratosthenes, matrix multiplication, binary trees, spectral norm, fannkuch, and n-body.
-
-Representative results (best of 3 runs, macOS arm64):
-
-| Benchmark | Rockit | Go | Node.js |
-|-----------|--------|----|---------|
-| fib(40) | 0.49s | 0.52s | 1.1s |
-| loop 100M | 0.18s | 0.19s | 0.75s |
-| objects 1M | 0.23s | 0.15s | 0.10s |
-| strings 100K | 0.44s | 0.54s | 0.09s |
-
-Rockit matches or beats Go on compute-bound workloads (fibonacci, tight loops) and is consistently faster than Node.js. Object-heavy and string-heavy benchmarks continue to improve as ARC and allocator optimizations mature.
-
-Run the full suite:
-
-```bash
-bash benchmarks/run_benchmarks.sh
+```
+listOf1(a)                              Create single-element list
+listOf2(a, b) / listOf3 / listOf4 / listOf5   Create multi-element lists
+listMap(list, transform)                Transform each element
+listFilter(list, predicate)             Keep matching elements
+listFold(list, initial, combine)        Reduce to single value
+listSort(list)                          In-place insertion sort
+listReverse(list)                       Reverse in place
+listSlice(list, start, end)             Sublist extraction
+listZip(a, b)                           Interleave two lists
+listFlatten(lists)                      Flatten list of lists
+listDistinct(list)                      Remove duplicates
+listFind(list, predicate)               First match or -1
+listAny(list, predicate)                Check if any match
+listAll(list, predicate)                Check if all match
+listCount(list, predicate)              Count matches
+listSum(list) / listMax / listMin       Aggregations
+listJoin(list, sep)                     Join as string
+listCopy(list)                          Shallow copy
+listFirst(list) / listLast(list)        Access endpoints
+listIsEmpty(list) / listForEach(list)   Utilities
 ```
 
-## Branch Strategy
+### rockit.core.math
 
-This repository uses a three-branch promotion model:
+```
+square(n) / cube(n) / power(base, exp) / factorial(n)   Integer arithmetic
+gcd(a, b) / lcm(a, b)                  Number theory
+clamp(value, lo, hi) / sign(n)         Utilities
+isEven(n) / isOdd(n)                   Parity checks
+PI() / E() / TAU()                      Constants
+sqrt(x) / sin(x) / cos(x) / tan(x)    Trigonometry
+atan2(y, x) / pow(base, exp)           Advanced math
+log(x) / exp(x)                         Logarithms
+floor(x) / ceil(x) / round(x)          Rounding
+absFloat(x) / clampFloat(v, lo, hi)    Float utilities
+toRadians(deg) / toDegrees(rad)         Angle conversion
+lerp(a, b, t)                           Linear interpolation
+```
 
-| Branch | Purpose | Stability |
-|--------|---------|-----------|
-| `develop` | Active development. New features land here first. | Unstable |
-| `master` | Integration testing. Merges from `develop` after review. | Testing |
-| `staging` | Production releases. Install scripts pull from this branch. | Stable |
+### rockit.core.strings
 
-**Install from `staging`.** Build from source from `develop` or `master`.
+```
+padLeft(s, width, ch) / padRight(s, width, ch)  Padding
+repeat(s, count)                        Repeat string
+join(items, sep) / split(s, delim)      Join and split
+reversed(s)                             Reverse string
+toUpper(s) / toLower(s)                 Case conversion
+trim(s)                                 Strip whitespace
+contains(s, sub) / indexOf(s, sub)      Search
+replace(s, old, new)                    Replace all occurrences
+substring(s, start, end)                Extract range
+countOccurrences(s, sub)                Count matches
+truncate(s, maxLen)                     Truncate with "..."
+zeroPad(s, width)                       Left-pad with zeros
+isEmpty(s) / isNotEmpty(s) / length(s)  Properties
+charAtPos(s, index)                     Character access
+```
 
-Releases are tagged on `staging` (e.g., `v0.1.0`) and published as tarballs with signed manifests.
+### rockit.core.result
 
-## CI / CD
+```
+sealed class Result(val isSuccess: Bool)
+class Success(val value: Int) : Result(true)
+class Failure(val error: String) : Result(false)
 
-Continuous integration runs on both Gitea (primary) and GitHub (mirror):
+resultOrElse(r, default)                Unwrap or default
+resultError(r)                          Get error message
+resultMap(r, transform)                 Transform Success value
+isSuccess(r) / isFailure(r)             Type checks
+```
 
-- **Gitea:** `.gitea/workflows/ci.yml` and `.gitea/workflows/release.yml`
-- **GitHub:** `.github/workflows/ci.yml` and `.github/workflows/release.yml`
+### rockit.io.file
 
-The CI pipeline:
+```
+readFile(path)                          Read entire file as string
+writeFile(path, content)                Write string to file
+readLines(path)                         Read file as list of lines
+writeLines(path, lines)                 Write lines to file
+exists(path)                            Check if file exists
+deleteFile(path)                        Delete file
+```
 
-1. Builds the Stage 0 bootstrap compiler from [dark-matter-tech/rockit-booster](https://github.com/dark-matter-tech/rockit-booster)
-2. Concatenates Stage 1 source modules via `build.sh`
-3. Compiles Stage 1 using Stage 0
-4. Builds the runtime
-5. Runs all integration tests (`examples/test_*.rok`)
-6. Performs bootstrap verification (Stage 2 == Stage 3 bytecode)
+### rockit.io.path
 
-CI runs on Linux x86_64 (Ubuntu 22.04 / Swift 5.10.1) and macOS arm64 (macOS 14).
+```
+pathJoin(a, b)                          Join path components
+pathDir(path)                           Directory component
+pathBase(path)                          Filename component
+pathExt(path)                           File extension (.ext)
+pathWithoutExt(path)                    Remove extension
+pathIsAbsolute(path)                    Check if absolute
+pathNormalize(path)                     Resolve . and ..
+```
 
-## Repositories
+### rockit.net.http
 
-The Rockit toolchain spans multiple repositories:
+```
+httpGet(url)                            GET request → response map
+httpPost(url, body, contentType)        POST request
+httpPostJson(url, jsonBody)             POST with JSON content type
+httpPut(url, body, contentType)         PUT request
+httpDelete(url)                         DELETE request
+httpRequest(method, url, headers, body) Full HTTP request
+httpStatus(r) / httpBody(r)             Response accessors
+httpHeader(r, name) / httpHeaders(r)    Header access (case-insensitive)
+httpIsError(r) / httpErrorMessage(r)    Error handling
+```
 
-| Repository | Description |
-|------------|-------------|
-| [Dark-Matter/rockit-compiler](https://rustygits.com/Dark-Matter/rockit-compiler) | This repo -- self-hosting compiler, runtime, tests, benchmarks |
-| [dark-matter-tech/rockit-booster](https://github.com/dark-matter-tech/rockit-booster) | Stage 0 bootstrap compiler (Swift) |
-| [dark-matter-tech/launchpad](https://github.com/dark-matter-tech/launchpad) | Standard library (15 modules, included as git submodule) |
-| [Dark-Matter/fuel](https://rustygits.com/Dark-Matter/fuel) | Package manager |
+HTTP uses raw TCP sockets for `http://` URLs and falls back to `curl` for `https://`.
 
-**Gitea** (rustygits.com) is the primary host. GitHub mirrors are maintained for public access and CI compatibility.
+### rockit.net.ws
 
-## Security
+```
+wsConnect(url)                          Open WebSocket connection → {fd, error}
+wsSend(ws, message)                     Send text frame
+wsSendBinary(ws, data)                  Send binary frame
+wsRecv(ws)                              Receive frame → {type, data}
+wsClose(ws)                             Send close frame and disconnect
+wsIsOpen(ws)                            Check connection status
+WS_TEXT() / WS_BINARY() / WS_CLOSE()   Frame type constants
+WS_PING() / WS_PONG()
+```
 
-Rockit implements a multi-layer security architecture covering the full chain from source to execution. See [SECURITY.md](SECURITY.md) for the complete specification.
+### rockit.net.url
 
-Key layers:
+```
+urlParse(url)                           Parse URL → {scheme, host, port, path, query, fragment}
+urlScheme(p) / urlHost(p) / urlPort(p)  Component accessors
+urlPath(p) / urlQuery(p) / urlFragment(p)
+urlQueryParams(query)                   Parse query string → Map
+urlQueryParam(query, name)              Get single parameter
+urlEncode(s) / urlDecode(s)             Percent-encoding
+urlToString(parsed)                     Reconstruct URL
+```
 
-- **Build identity** -- Every compiler binary embeds version, git commit, source hash, timestamp, and platform.
-- **Release manifests** -- Every release tarball includes `MANIFEST.sha256` with SHA-256 hashes of all files.
-- **Code signing** -- GPG signatures on all releases. Platform-native signing (macOS codesign, Windows Authenticode) where applicable.
-- **Bootstrap verification** -- CI verifies Stage 2 == Stage 3 on every build to detect compiler tampering.
+### rockit.encoding.base64
 
-Public signing keys are published in the `keys/` directory.
+```
+base64Encode(s)                         Encode string to base64
+base64Decode(s)                         Decode base64 to string
+```
 
-### Reporting Vulnerabilities
+### rockit.time.datetime
 
-See [SECURITY.md](SECURITY.md) for the vulnerability disclosure policy and contact information.
+```
+now()                                   Current time (epoch millis)
+epochSeconds()                          Current time (epoch seconds)
+dateFromEpoch(epochMs)                  Epoch → {year, month, day, hour, minute, second, dayOfWeek}
+formatDate(d, pattern)                  Format: "YYYY-MM-DD", "MM/DD/YYYY", "DD.MM.YYYY"
+formatTime(d)                           Format: "HH:MM:SS"
+formatDateTime(d)                       Format: "YYYY-MM-DDTHH:MM:SS"
+isLeapYear(year)                        Leap year check
+daysInMonth(year, month)                Days in month
+dayOfWeek(year, month, day)             0=Sun..6=Sat (Tomohiko Sakamoto)
+```
+
+### rockit.json
+
+```
+jsonParse(input)                        Parse JSON string → value or error
+jsonStringify(v)                        Compact serialization
+jsonStringifyPretty(v, indent)          Pretty-print with indentation
+
+jsonNull() / jsonBool(b) / jsonNumber(n) / jsonString(s)  Constructors
+jsonArray() / jsonObject() / jsonError(msg)
+
+jsonIsNull(v) / jsonIsBool(v) / jsonIsNumber(v)           Type checks
+jsonIsString(v) / jsonIsArray(v) / jsonIsObject(v) / jsonIsError(v)
+
+jsonGetBool(v) / jsonGetInt(v) / jsonGetString(v)         Accessors
+
+jsonArrayAppend(arr, item)              Array operations
+jsonArrayGet(arr, i) / jsonArraySet(arr, i, v) / jsonArrayRemoveAt(arr, i)
+jsonArraySize(arr)
+
+jsonObjectPut(obj, key, val)            Object operations
+jsonObjectGet(obj, key) / jsonObjectRemove(obj, key)
+jsonObjectKeys(obj) / jsonObjectSize(obj) / jsonObjectHas(obj, key)
+
+jsonEquals(a, b)                        Deep equality
+```
+
+### rockit.test.probe
+
+Probe is the Rockit test framework. Write tests with `@Test` annotation and run with `rockit test`.
+
+**Top-level tests** (backward compatible):
+
+```kotlin
+import rockit.test.probe
+
+@Test
+fun testMath() {
+    assertEquals(4, 2 + 2, "addition")
+    assertGreaterThan(10, 5)
+}
+```
+
+**Class-based test suites** — classes containing `@Test` methods act as test suites (like Kotlin/Swift). Optional `setUp()` and `tearDown()` lifecycle methods run before/after each test:
+
+```kotlin
+import rockit.test.probe
+
+class MathTests {
+    fun setUp() { /* runs before each @Test */ }
+    fun tearDown() { /* runs after each @Test */ }
+
+    @Test fun testAdd() { assertEquals(4, 2 + 2, "addition") }
+    @Test fun testSub() { assertEquals(1, 3 - 2, "subtraction") }
+}
+
+// Top-level @Test functions still work alongside class suites
+@Test fun testStandalone() { assertTrue(true, "standalone") }
+```
+
+Output format:
+```
+  PASS  test_math.rok::MathTests::testAdd
+  PASS  test_math.rok::MathTests::testSub
+  PASS  test_math.rok::testStandalone
+```
+
+**Assertions:**
+
+```
+assert(condition, message?)             Generic assertion
+assertTrue(cond, msg?) / assertFalse(cond, msg?)
+assertEquals(expected, actual, msg?)    Int equality
+assertEqualsStr(expected, actual, msg?) String equality
+assertNotEquals(a, b, msg?)             Int inequality
+assertGreaterThan(a, b, msg?)           a > b
+assertLessThan(a, b, msg?)             a < b
+assertStringContains(s, sub, msg?)      Substring check
+assertStartsWith(s, prefix, msg?)       Prefix check
+assertEndsWith(s, suffix, msg?)         Suffix check
+fail(msg?)                              Unconditional failure
+```
+
+**Running tests:**
+
+```bash
+rockit test                              # discover tests/ recursively
+rockit test path/to/file.rok             # run a specific file
+rockit test --filter testAdd             # match function name
+rockit test --filter MathTests           # all tests in class
+rockit test --filter MathTests::testAdd  # exact class::method
+rockit test --watch                      # re-run on file changes
+rockit test --scheme unit                # run named scheme from fuel.toml
+```
+
+### JSON Example
+
+```kotlin
+import rockit.json
+
+fun main(): Unit {
+    val input = "{\"name\": \"Rockit\", \"version\": 1, \"features\": [\"fast\", \"safe\"]}"
+    val obj = jsonParse(input)
+
+    // Read values
+    println(jsonGetString(jsonObjectGet(obj, "name")))  // Rockit
+    println(jsonGetInt(jsonObjectGet(obj, "version")))   // 1
+
+    // Modify
+    jsonObjectPut(obj, "stable", jsonBool(true))
+
+    // Serialize
+    println(jsonStringify(obj))
+    println(jsonStringifyPretty(obj, 0))
+}
+```
+
+See `examples/json_tool.rok` for a complete file-based JSON tool (pretty-print, compact, info modes).
+
+---
+
+## Test
+
+```bash
+swift test
+```
+
+542 test cases covering the full compiler pipeline: lexer, parser, type checker, MIR, optimizer, codegen, VM, collections, strings, ARC, coroutines, actors, structured concurrency, file I/O, and bytecode serialization.
+
+---
+
+## Performance
+
+The native compiler includes several optimizations that make Rockit competitive with established languages:
+
+**Immortal String Literals** — String constants are never heap-allocated or reference-counted. They live in the binary's read-only data segment and bypass ARC entirely.
+
+**ARC Write Barriers** — The compiler tracks `ptrFieldBits` per object so `rockit_release` only scans fields that actually contain heap pointers, eliminating unnecessary reference counting on primitive fields.
+
+**Inline ARC** — String release is emitted as inline LLVM IR (refcount decrement + conditional free) instead of a function call, saving overhead on every string deallocation.
+
+**Value Types** — `data class` declarations with only primitive fields (Int, Float, Bool, etc.) use inline GEP field access instead of runtime function calls, and skip ARC retain/release for field values.
+
+**Escape Analysis & Stack Promotion** — Value-type `data class` instances that don't escape the current function are stack-allocated via LLVM `alloca` instead of heap-allocated via `malloc`. Interprocedural analysis proves parameters don't escape through read-only callees, enabling stack promotion even when objects are passed to functions.
+
+**Inline List Access** — `listGet`, `listSet`, and `listSize` are compiled to direct GEP memory operations with inline bounds checks instead of runtime function calls, eliminating call overhead while maintaining memory safety. Bounds checks add only 1-5% overhead — LLVM hot/cold splitting moves panic paths out of loop bodies.
+
+**Inline Integer Comparison** — `==` and `!=` on known integer operands compile to a single `icmp` instruction instead of calling the polymorphic `rockit_string_eq` runtime function.
+
+**TBAA Alias Analysis** — List struct field loads (size, data pointer) are annotated with LLVM TBAA metadata, proving they can't alias element stores. This lets LLVM hoist struct field loads out of inner loops, eliminating redundant memory accesses.
+
+**Inline `toInt()`** — When the argument is a known integer, `toInt()` is compiled to a direct copy instead of a runtime function call. Combined with TBAA, this lets LLVM fully optimize tight loops with no function call barriers.
+
+**Bulk List Initialization** — `listCreateFilled(size, value)` allocates and fills a list in a single `malloc` + `memset`, replacing N individual `listAppend` calls that each involve function call overhead, capacity checks, and potential reallocations.
+
+**Multi-String Concat Flattening** — Chains of string `+` operations (e.g. `"(" + left + " " + op + " " + right + ")"`) are flattened at compile time into a single `concat_n` call that measures total length once, allocates once, and copies all parts in. A 7-part concat goes from 6 intermediate allocations to 1.
+
+**Internal Linkage** — Non-`main` functions are emitted with `internal` linkage, giving LLVM full freedom to inline and optimize across function boundaries.
+
+### Benchmarks
+
+All benchmarks run on Apple M1, best of 3 runs.
+
+#### Core Benchmarks
+
+| Benchmark | Rockit | Go | Node.js |
+|-----------|--------|-----|---------|
+| **Fibonacci** (fib 40, recursive) | **0.31s** | 0.34s | 1.03s |
+| **Object alloc** (1M data class) | **0.002s** | 0.003s | 0.07s |
+| **Prime sieve** (primes to 1M) | **0.004s** | 0.004s | 0.07s |
+| **Matrix multiply** (200x200) | **0.006s** | 0.011s | 0.08s |
+| **Quicksort** (500K integers) | **0.031s** | 0.034s | 0.18s |
+| **String concat** (500K iterations) | **0.17s** | 0.35s | **0.06s** |
+| **Monkey interpreter** (lex+parse+eval) | 0.25s | **0.19s** | – |
+
+#### CLBG Benchmarks
+
+| Benchmark | Rockit | Go |
+|-----------|--------|-----|
+| **Binary trees** (depth 21) | **5.41s** | 10.52s |
+| **Fannkuch** (n=12) | 25.03s | **24.79s** |
+| **N-body** (50M steps) | 2.63s | **2.42s** |
+| **Spectral norm** (n=5500) | 1.15s | **1.14s** |
+
+Rockit beats Go on 7 of 11 benchmarks. Rockit outperforms Node.js 3-15x across all measured benchmarks.
+
+Run the full suite: `bash benchmarks/run_benchmarks.sh`
+
+### Built-in Benchmark Runner
+
+`rockit bench` provides built-in benchmarking with history tracking and regression detection.
+
+**Whole-file benchmarks** — any `.rok` file in `benchmarks/` is treated as a benchmark:
+
+```bash
+rockit bench benchmarks/bench_fib.rok         # single file
+rockit bench benchmarks/                       # all benchmarks in directory
+rockit bench                                   # default: benchmarks/ directory
+```
+
+**`@Benchmark` annotated functions** — fine-grained benchmarks within a file:
+
+```kotlin
+import rockit.test.probe
+
+fun fib(n: Int): Int {
+    if (n <= 1) { return n }
+    return fib(n - 1) + fib(n - 2)
+}
+
+@Benchmark
+fun benchFib30() {
+    val result = fib(30)
+}
+```
+
+**Options:**
+
+```bash
+rockit bench --runs 10                # measurement runs (default: 5)
+rockit bench --warmup 3               # warmup runs (default: 2)
+rockit bench --save                   # save to .rockit/bench_history.json
+```
+
+**Regression detection** — when history exists, results are compared against the previous run:
+
+```
+  bench_fib       145ms avg    +2.1ms (+1.5%)
+  bench_monkey    892ms avg    -30ms  (-3.3%)  ✓ faster
+  bench_matrix    355ms avg    +14ms  (+4.1%)  ⚠ regression (>3%)
+```
+
+Results are stored in `.rockit/bench_history.json` with commit hash and timestamp for tracking performance over time.
+
+---
+
+## Architecture
+
+```
+RockitCompiler/
+├── Package.swift
+├── README.md
+├── bootstrap-swift/           # Stage 0 Swift compiler
+│   ├── RockitKit/             #   Core compiler library (37+ files)
+│   │   ├── Token.swift        #   130+ token types
+│   │   ├── Lexer.swift        #   Single-pass UTF-8 scanner
+│   │   ├── Parser.swift       #   Recursive descent parser
+│   │   ├── TypeChecker.swift
+│   │   ├── MIRLowering.swift
+│   │   ├── MIROptimizer.swift
+│   │   ├── CodeGen.swift      #   MIR → bytecode
+│   │   ├── LLVMCodeGen.swift  #   MIR → LLVM IR → native
+│   │   ├── VM.swift           #   Bytecode interpreter
+│   │   ├── Scheduler.swift    #   Coroutine scheduler
+│   │   ├── Coroutine.swift    #   Coroutine state machine
+│   │   └── ...
+│   ├── RockitCLI/             #   CLI entry point
+│   └── Tests/RockitKitTests/  #   542 Swift tests
+├── lsp/
+│   └── RockitLSP/             # Language server (12 files)
+├── self-hosted-rockit/        # Stage 1 Rockit compiler (~12K lines)
+│   ├── lexer.rok
+│   ├── parser.rok
+│   ├── typechecker.rok
+│   ├── optimizer.rok
+│   ├── codegen.rok
+│   ├── llvmgen.rok
+│   ├── command.rok            # Concatenated compiler source
+│   ├── command                # Stage 1 native binary
+│   └── stdlib/                # Standard library submodule (launchpad, 22 modules)
+│       └── rockit/
+│           ├── core/          # collections, math, strings, result, uuid
+│           ├── encoding/      # base64, hpack, json, xml
+│           ├── filesystem/    # file, path
+│           ├── networking/    # http, http2, url, websocket
+│           ├── security/      # tls, crypto, x509, pem
+│           ├── testing/       # probe
+│           └── time/          # datetime
+├── tests/                     # Rockit integration tests
+│   ├── advanced/
+│   ├── core/
+│   ├── collections/
+│   ├── concurrency/
+│   ├── functions/
+│   ├── patterns/
+│   ├── stdlib/
+│   ├── types/
+│   └── ui/
+├── examples/                  # 48+ example/test .rok files
+├── benchmarks/                # Benchmark suite
+├── runtime/
+│   ├── rockit_runtime.c       # C runtime (ARC, actors, coroutines)
+│   └── rockit/                # Modular Rockit runtime (freestanding)
+│       ├── memory.rok         # malloc/free, ARC retain/release
+│       ├── string.rok         # String struct, new, eq, neq, concat, length
+│       ├── string_ops.rok     # charAt, indexOf, substring, split, trim
+│       ├── object.rok         # Object alloc, field access, type checking
+│       ├── list.rok           # List create/append/get/set/remove/size
+│       ├── map.rok            # Map create/put/get/keys/remove
+│       ├── io.rok             # println, print (int, float, string, any)
+│       ├── exception.rok      # setjmp/longjmp exception stack
+│       ├── file.rok           # fileRead, fileWrite, fileExists, fileDelete
+│       ├── process.rok        # processArgs, getEnv, platformOS, systemExec
+│       ├── math.rok           # sqrt, sin, cos, tan, floor, ceil, round, etc.
+│       ├── concurrency.rok    # Task scheduler, frame alloc/free, event loop
+│       └── build.sh           # Concatenates and compiles all modules
+└── scripts/                   # Install and packaging scripts
+    ├── install.sh
+    ├── install.ps1
+    └── package.sh
+```
+
+RockitKit is a standalone library so it can be imported by other tools (editor plugins, LSP server, Fuel) without the CLI.
+
+### Freestanding Mode (`--no-runtime`)
+
+The `--no-runtime` flag compiles Rockit programs without linking the standard runtime. This enables low-level systems programming with direct memory control:
+
+```kotlin
+extern fun malloc(size: Int): Ptr<Int>
+extern fun free(ptr: Ptr<Int>): Unit
+extern fun puts(s: Int): Int
+
+fun main(): Unit {
+    unsafe {
+        val buf = alloc(64)
+        storeByte(buf, 0, 72)  // 'H'
+        storeByte(buf, 1, 105) // 'i'
+        storeByte(buf, 2, 0)   // null terminator
+        puts(buf)
+        free(bitcast(buf))
+    }
+}
+```
+
+Stage 1 features available in freestanding mode: `Ptr<T>`, `alloc`/`free`, `bitcast`, `cstr`, `unsafe` blocks, `loadByte`/`storeByte`, `extern` C functions, `@CRepr` structs, global variables.
+
+## Language Server (LSP)
+
+Rockit ships a built-in language server. Start it with:
+
+```bash
+rockit lsp
+```
+
+Works with any LSP-compatible editor. IDE configs are provided in `ide/` for JetBrains, VS Code, Vim/Neovim, Sublime Text, Emacs, Helix, and Zed.
+
+### Capabilities
+
+| Feature | LSP Method | Status |
+|---------|-----------|--------|
+| Diagnostics | `textDocument/publishDiagnostics` | Tested |
+| Hover | `textDocument/hover` | Tested |
+| Completion | `textDocument/completion` | Tested |
+| Go to Definition | `textDocument/definition` | Tested |
+| Go to Type Definition | `textDocument/typeDefinition` | Tested |
+| Go to Implementation | `textDocument/implementation` | Tested |
+| Find References | `textDocument/references` | Tested |
+| Document Symbols | `textDocument/documentSymbol` | Tested |
+| Workspace Symbols | `workspace/symbol` | Tested |
+| Signature Help | `textDocument/signatureHelp` | Tested |
+| Rename Symbol | `textDocument/rename` | Tested |
+| Call Hierarchy | `callHierarchy/incomingCalls`, `outgoingCalls` | TODO: test |
+| Semantic Tokens | `textDocument/semanticTokens/full` | Tested |
+| Document Formatting | `textDocument/formatting` | Tested |
+| On Type Formatting | `textDocument/onTypeFormatting` | TODO: test |
+| Inlay Hints | `textDocument/inlayHint` | Tested |
+| Code Actions | `textDocument/codeAction` | TODO: test |
+| Document Links | `textDocument/documentLink` | Tested |
+| Folding Ranges | `textDocument/foldingRange` | Tested |
+| Document Highlight | `textDocument/documentHighlight` | Tested |
+| Selection Range | `textDocument/selectionRange` | TODO: test |
+| Type Hierarchy | `typeHierarchy/supertypes`, `subtypes` | Tested |
+| Range Formatting | `textDocument/rangeFormatting` | TODO: test |
+| Incremental Sync | `textDocument/didChange` (mode 2) | Done |
+
+### Editor Setup
+
+**JetBrains (IntelliJ / Fleet):** Install the plugin from `ide/intellij-rockit/build/distributions/intellij-rockit-*.zip` via Settings > Plugins > Install Plugin from Disk.
+
+**VS Code:** Open `ide/vscode/` and run `npm install && npm run compile`. Install via Extensions > Install from VSIX or symlink into `~/.vscode/extensions/`.
+
+**Neovim (nvim-lspconfig):**
+```lua
+require('lspconfig.configs').rockit = {
+  default_config = {
+    cmd = { 'rockit', 'lsp' },
+    filetypes = { 'rockit' },
+    root_dir = require('lspconfig.util').root_pattern('fuel.toml', '.git'),
+  },
+}
+require('lspconfig').rockit.setup({})
+```
+
+**Sublime Text:** Copy `ide/sublime/LSP-rockit.sublime-settings` into your Packages/LSP/ directory.
+
+**Emacs:** See `ide/emacs/rockit-lsp.el` for lsp-mode and eglot configurations.
+
+**Helix:** Copy `ide/helix/languages.toml` into your Helix config directory.
+
+**Zed:** Copy `ide/zed/settings.json` into your Zed settings.
+
+---
+
+## Compiler Pipeline
+
+| Phase | Input | Output | Status |
+|-------|-------|--------|--------|
+| **Lexer** | `.rok` source | Token stream | Complete |
+| **Parser** | Token stream | AST | Complete |
+| **Type Checker** | AST | Typed AST | Complete |
+| **MIR Lowering** | Typed AST | Rockit IR | Complete |
+| **Optimizer** | MIR | Optimized MIR | Complete |
+| **Codegen** | Optimized MIR | Bytecode / LLVM IR | Complete |
+| **Runtime** | Bytecode | Execution | Complete |
+
+---
+
+## Platforms
+
+| Platform | Swift build | Bytecode VM | Native compile |
+|----------|-------------|-------------|----------------|
+| macOS (arm64, x86_64) | Yes | Yes | Yes |
+| Linux (x86_64, arm64) | Yes | Yes | Yes |
+| Windows (x86_64) | Yes | Yes | Yes |
+
+### Prerequisites
+
+- **Swift 5.9+** — [swift.org/download](https://swift.org/download)
+- **Clang/LLVM 14+** — required for native compilation (`rockit build-native`)
+  - macOS: `xcode-select --install`
+  - Linux: `sudo apt install clang`
+  - Windows: [releases.llvm.org](https://releases.llvm.org)
+
+---
 
 ## License
 
-Proprietary -- Dark Matter Tech. All rights reserved.
+Apache 2.0. Copyright 2026 Dark Matter Tech.
