@@ -3,7 +3,7 @@ name: CI
 on:
   push:
   pull_request:
-    branches: [develop, master, staging]
+    branches: [develop, beta, master, staging]
 
 jobs:
   linux:
@@ -113,7 +113,7 @@ jobs:
     name: Push Docker Image
     runs-on: ubuntu-22.04
     needs: [linux]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/beta' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
     defaults:
       run:
         shell: bash
@@ -139,14 +139,25 @@ jobs:
         env:
           GITEA_PAT: ${{ secrets.GITEAPAT }}
 
+      - name: Determine Docker tag
+        run: |
+          case "${GITHUB_REF}" in
+            refs/heads/beta)    echo "DOCKER_TAG=beta" >> "$GITHUB_ENV" ;;
+            refs/heads/master)  echo "DOCKER_TAG=rc" >> "$GITHUB_ENV" ;;
+            refs/heads/staging) echo "DOCKER_TAG=latest" >> "$GITHUB_ENV" ;;
+          esac
+
       - name: Build Docker image
         run: |
-          docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:latest .
+          docker build -f Dockerfile.toolchain \
+            -t ${DOCKERHUB_USERNAME}/rockit-toolchain:${DOCKER_TAG} .
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
       - name: Push to Docker Hub
         run: |
           echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
-          docker push ${DOCKERHUB_USERNAME}/rockit-toolchain:latest
+          docker push ${DOCKERHUB_USERNAME}/rockit-toolchain:${DOCKER_TAG}
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -155,7 +166,7 @@ jobs:
     name: Mirror to GitHub
     runs-on: ubuntu-22.04
     needs: [linux]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/beta' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
     defaults:
       run:
         shell: bash

@@ -3,7 +3,7 @@ name: CI
 on:
   push:
   pull_request:
-    branches: [develop, master, staging]
+    branches: [develop, beta, master, staging]
 
 jobs:
   linux:
@@ -93,7 +93,7 @@ jobs:
     name: Push Docker Image
     runs-on: ubuntu-22.04
     needs: [linux]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/beta' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
 
     steps:
       - uses: actions/checkout@v4
@@ -118,13 +118,21 @@ jobs:
           cp -r launchpad rockit-toolchain/share/rockit/stdlib
           chmod +x rockit-toolchain/bin/rockit
 
+      - name: Determine Docker tag
+        run: |
+          case "${GITHUB_REF}" in
+            refs/heads/beta)    echo "DOCKER_TAG=beta" >> "$GITHUB_ENV" ;;
+            refs/heads/master)  echo "DOCKER_TAG=rc" >> "$GITHUB_ENV" ;;
+            refs/heads/staging) echo "DOCKER_TAG=latest" >> "$GITHUB_ENV" ;;
+          esac
+
       - name: Build Docker image
-        run: docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:latest .
+        run: docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:${DOCKER_TAG} .
 
       - name: Push to Docker Hub
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:${DOCKER_TAG}
 
   macos:
     name: macOS arm64
