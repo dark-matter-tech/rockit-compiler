@@ -89,6 +89,43 @@ jobs:
             exit 1
           fi
 
+  docker:
+    name: Push Docker Image
+    runs-on: ubuntu-22.04
+    needs: [linux]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Clone Stage 0 (bootstrap compiler)
+        run: git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
+
+      - name: Build Stage 0
+        run: cd /tmp/stage0 && swift build -c release
+
+      - name: Build toolchain
+        run: |
+          ROCKIT=/tmp/stage0/.build/release/rockit
+          bash src/build.sh
+          $ROCKIT build-native src/command.rok
+          bash runtime/rockit/build.sh
+          mkdir -p rockit-toolchain/bin rockit-toolchain/share/rockit
+          cp src/command rockit-toolchain/bin/rockit
+          cp runtime/rockit_runtime.o rockit-toolchain/share/rockit/
+          cp -r launchpad rockit-toolchain/share/rockit/stdlib
+          chmod +x rockit-toolchain/bin/rockit
+
+      - name: Build Docker image
+        run: docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:latest .
+
+      - name: Push to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:latest
+
   macos:
     name: macOS arm64
     runs-on: macos-14

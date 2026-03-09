@@ -109,6 +109,48 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITEAPAT }}
 
+  docker:
+    name: Push Docker Image
+    runs-on: ubuntu-22.04
+    needs: [linux]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITHUB_TOKEN}" > ~/.netrc
+          chmod 600 ~/.netrc
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git clone --depth 1 --recurse-submodules --branch "${BRANCH}" "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
+        env:
+          GITHUB_TOKEN: ${{ gitea.token }}
+
+      - name: Download Rockit toolchain
+        run: |
+          API="${GITHUB_SERVER_URL}/api"
+          curl -sL -H "Authorization: token ${GITEA_PAT}" \
+            "${API}/packages/Dark-Matter/generic/rockit-toolchain/latest/rockit-toolchain-linux-x86_64.tar.gz" \
+            -o /tmp/toolchain.tar.gz
+          cd /tmp && tar -xzf toolchain.tar.gz
+          cp -r /tmp/rockit-toolchain .
+        env:
+          GITEA_PAT: ${{ secrets.GITEAPAT }}
+
+      - name: Build Docker image
+        run: |
+          docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:latest .
+
+      - name: Push to Docker Hub
+        run: |
+          echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USERNAME}" --password-stdin
+          docker push ${DOCKERHUB_USERNAME}/rockit-toolchain:latest
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
   mirror:
     name: Mirror to GitHub
     runs-on: ubuntu-22.04
