@@ -82,6 +82,36 @@ jobs:
           /tmp/stage2 compile src/command.rok -o /tmp/stage3.rokb
           diff /tmp/stage2.rokb /tmp/stage3.rokb && echo "Bootstrap verified" || (echo "Bootstrap FAILED" && exit 1)
 
+      - name: Upload toolchain package
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        run: |
+          mkdir -p /tmp/rockit-toolchain/bin /tmp/rockit-toolchain/share/rockit
+          cp src/command /tmp/rockit-toolchain/bin/rockit
+          cp runtime/rockit_runtime.o /tmp/rockit-toolchain/share/rockit/
+          cp -r launchpad /tmp/rockit-toolchain/share/rockit/stdlib
+          chmod +x /tmp/rockit-toolchain/bin/rockit
+          cd /tmp && tar -czf rockit-toolchain-linux-x86_64.tar.gz rockit-toolchain
+
+          API="${GITHUB_SERVER_URL}/api/v1"
+          PKG_VERSION="0.0.$(date +%Y%m%d%H%M%S)"
+          curl -s -X PUT \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            --upload-file /tmp/rockit-toolchain-linux-x86_64.tar.gz \
+            "${API}/packages/Dark-Matter/generic/rockit-toolchain/${PKG_VERSION}/rockit-toolchain-linux-x86_64.tar.gz"
+
+          # Also upload as "latest"
+          curl -s -X DELETE \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            "${API}/packages/Dark-Matter/generic/rockit-toolchain/latest" || true
+          curl -s -X PUT \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            --upload-file /tmp/rockit-toolchain-linux-x86_64.tar.gz \
+            "${API}/packages/Dark-Matter/generic/rockit-toolchain/latest/rockit-toolchain-linux-x86_64.tar.gz"
+
+          echo "Uploaded rockit-toolchain ${PKG_VERSION}"
+        env:
+          GITHUB_TOKEN: ${{ gitea.token }}
+
   mirror:
     name: Mirror to GitHub
     runs-on: ubuntu-22.04
