@@ -110,7 +110,7 @@ jobs:
 
           echo "Uploaded rockit-toolchain ${PKG_VERSION}"
         env:
-          GITHUB_TOKEN: ${{ gitea.token }}
+          GITHUB_TOKEN: ${{ secrets.GITEAPAT }}
 
   mirror:
     name: Mirror to GitHub
