@@ -1,0 +1,18 @@
+FROM swift:5.10.1-jammy
+
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+        git clang lld llvm-dev libssl-dev pkg-config curl ca-certificates && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ARG GITEA_PAT
+ARG GITEA_HOST=rustygits.com
+
+RUN git clone --depth 1 \
+    "https://x-access-token:${GITEA_PAT}@${GITEA_HOST}/Dark-Matter/rockit-booster.git" \
+    /opt/stage0 && \
+    cd /opt/stage0 && swift build -c release && \
+    cp "$(swift build -c release --show-bin-path)/rockit" /usr/local/bin/rockit-stage0 && \
+    rm -rf /opt/stage0
+
+RUN rockit-stage0 version
