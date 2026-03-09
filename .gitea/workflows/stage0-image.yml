@@ -1,0 +1,54 @@
+name: Build Stage 0 Image
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly rebuild
+
+concurrency:
+  group: stage0-image
+  cancel-in-progress: true
+
+jobs:
+  build-stage0:
+    name: Build rockit-stage0 image
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITHUB_TOKEN}" > ~/.netrc
+          chmod 600 ~/.netrc
+          git clone --depth 1 --branch master "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git" .
+        env:
+          GITHUB_TOKEN: ${{ gitea.token }}
+
+      - name: Log in to Gitea Container Registry
+        run: |
+          REGISTRY="${GITHUB_SERVER_URL#https://}"
+          echo "${GITEA_PAT}" | docker login "${REGISTRY}" -u burnside --password-stdin
+        env:
+          GITEA_PAT: ${{ secrets.GITEAPAT }}
+
+      - name: Build image
+        run: |
+          REGISTRY="${GITHUB_SERVER_URL#https://}"
+          IMAGE="${REGISTRY}/dark-matter/rockit-stage0"
+          docker build \
+            -f Dockerfile.stage0 \
+            --build-arg GITEA_PAT="${GITEA_PAT}" \
+            --build-arg GITEA_HOST="${REGISTRY}" \
+            -t "${IMAGE}:latest" \
+            .
+          echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
+        env:
+          GITEA_PAT: ${{ secrets.GITEAPAT }}
+
+      - name: Push image
+        run: |
+          docker push "${IMAGE}:latest"
+          echo "Pushed ${IMAGE}:latest"
