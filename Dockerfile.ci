@@ -1,0 +1,44 @@
+FROM swift:5.10.1-jammy AS builder
+
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+        git clang lld llvm-dev libssl-dev pkg-config curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ARG GITEA_PAT
+ARG GITEA_HOST=rustygits.com
+
+# Build Stage 0 (Swift bootstrap compiler)
+RUN git clone --depth 1 \
+    "https://x-access-token:${GITEA_PAT}@${GITEA_HOST}/Dark-Matter/rockit-booster.git" \
+    /tmp/stage0 && \
+    cd /tmp/stage0 && swift build -c release
+
+# Clone compiler source with submodules (stdlib)
+COPY . /tmp/rockit-compiler
+
+# Build Stage 1
+RUN cd /tmp/rockit-compiler && bash src/build.sh && \
+    /tmp/stage0/.build/release/rockit build-native src/command.rok && \
+    chmod +x src/command
+
+# Build runtime
+RUN cd /tmp/rockit-compiler && bash runtime/rockit/build.sh
+
+# --- Final image (no Swift needed) ---
+FROM ubuntu:22.04
+
+RUN apt-get update -qq && \
+    apt-get install -y -qq --no-install-recommends \
+        clang lld llvm-dev libssl-dev pkg-config git curl ca-certificates && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /tmp/rockit-compiler/src/command /usr/local/bin/rockit
+COPY --from=builder /tmp/rockit-compiler/runtime/rockit_runtime.o /usr/local/share/rockit/rockit_runtime.o
+COPY --from=builder /tmp/rockit-compiler/launchpad /usr/local/share/rockit/stdlib
+
+ENV ROCKIT=/usr/local/bin/rockit
+ENV RUNTIME=/usr/local/share/rockit/rockit_runtime.o
+ENV STDLIB=/usr/local/share/rockit/stdlib
+
+RUN rockit version
