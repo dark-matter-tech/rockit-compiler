@@ -92,7 +92,7 @@ jobs:
           chmod +x /tmp/rockit-toolchain/bin/rockit
           cd /tmp && tar -czf rockit-toolchain-linux-x86_64.tar.gz rockit-toolchain
 
-          API="${GITHUB_SERVER_URL}/api/v1"
+          API="${GITHUB_SERVER_URL}/api"
           PKG_VERSION="0.0.$(date +%Y%m%d%H%M%S)"
           curl -s -X PUT \
             -H "Authorization: token ${GITHUB_TOKEN}" \

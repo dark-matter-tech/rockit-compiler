@@ -34,7 +34,7 @@ jobs:
 
       - name: Download toolchain package
         run: |
-          API="${GITHUB_SERVER_URL}/api/v1"
+          API="${GITHUB_SERVER_URL}/api"
           curl -sL -H "Authorization: token ${GITEA_PAT}" \
             "${API}/packages/Dark-Matter/generic/rockit-toolchain/latest/rockit-toolchain-linux-x86_64.tar.gz" \
             -o /tmp/toolchain.tar.gz
