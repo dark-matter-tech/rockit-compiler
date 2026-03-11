@@ -11,9 +11,11 @@ RUN apt-get update -qq && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY rockit-compiler/bin/rockit /usr/local/bin/rockit
+COPY rockit-compiler/share/rockit/rockit_runtime.o /usr/local/share/rockit/rockit_runtime.o
 
 RUN chmod +x /usr/local/bin/rockit && rockit version
 
 ENV ROCKIT=/usr/local/bin/rockit
+ENV ROCKIT_RUNTIME=/usr/local/share/rockit/rockit_runtime.o
 
 WORKDIR /workspace

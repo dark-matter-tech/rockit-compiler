@@ -109,6 +109,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITEAPAT }}
 
+  notify-integration:
+    name: Trigger integration tests
+    runs-on: ubuntu-22.04
+    needs: [linux]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/staging')
+    steps:
+      - name: Dispatch to rockit-lang
+        run: |
+          curl -s -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_PAT}" \
+            https://api.github.com/repos/dark-matter-tech/rockit-lang/dispatches \
+            -d "{\"event_type\":\"integration-test\",\"client_payload\":{\"repo\":\"rockit-compiler\",\"ref\":\"${GITHUB_REF_NAME}\"}}"
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+
   docker:
     name: Push Docker Image
     runs-on: ubuntu-22.04
@@ -139,15 +155,19 @@ jobs:
           fi
           apt-get clean && rm -rf /var/lib/apt/lists/*
 
-      - name: Build compiler
+      - name: Build compiler + runtime
         run: |
+          mv ~/.netrc ~/.netrc.bak 2>/dev/null || true
           git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          mv ~/.netrc.bak ~/.netrc 2>/dev/null || true
           cd /tmp/stage0 && swift build -c release && cd -
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
           $ROCKIT build-native src/command.rok
-          mkdir -p rockit-compiler/bin
+          bash runtime/rockit/build.sh
+          mkdir -p rockit-compiler/bin rockit-compiler/share/rockit
           cp src/command rockit-compiler/bin/rockit
+          cp runtime/rockit_runtime.o rockit-compiler/share/rockit/rockit_runtime.o
           chmod +x rockit-compiler/bin/rockit
 
       - name: Determine Docker tag
