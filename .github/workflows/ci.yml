@@ -115,17 +115,14 @@ jobs:
       - name: Build Stage 0
         run: cd /tmp/stage0 && swift build -c release
 
-      - name: Build toolchain
+      - name: Build compiler
         run: |
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
           $ROCKIT build-native src/command.rok
-          bash runtime/rockit/build.sh
-          mkdir -p rockit-toolchain/bin rockit-toolchain/share/rockit
-          cp src/command rockit-toolchain/bin/rockit
-          cp runtime/rockit_runtime.o rockit-toolchain/share/rockit/
-          cp -r launchpad rockit-toolchain/share/rockit/stdlib
-          chmod +x rockit-toolchain/bin/rockit
+          mkdir -p rockit-compiler/bin
+          cp src/command rockit-compiler/bin/rockit
+          chmod +x rockit-compiler/bin/rockit
 
       - name: Determine Docker tag
         run: |
@@ -136,12 +133,12 @@ jobs:
           esac
 
       - name: Build Docker image
-        run: docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:${DOCKER_TAG} .
+        run: docker build -f Dockerfile.toolchain -t ${{ secrets.DOCKERHUB_USERNAME }}/rockit-compiler:${DOCKER_TAG} .
 
       - name: Push to Docker Hub
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/rockit-toolchain:${DOCKER_TAG}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/rockit-compiler:${DOCKER_TAG}
 
   macos:
     name: macOS arm64
