@@ -6279,26 +6279,35 @@ fun emitLLVMFunction(compiler: Map, funcRec: Map, sigTable: Map, definedFuncs: M
             val tval = llvmNextSSA(state)
             llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr @", globalName))))
             llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr %t", toString(dest)))))
-            // Retain on load: creates an owning reference so the value
-            // survives if the global is overwritten later.
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            mapPut(usedExterns, "rockit_retain_value", true)
+            if (noRuntime == false) {
+                // Retain on load: creates an owning reference so the value
+                // survives if the global is overwritten later.
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                mapPut(usedExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 84) {
             // OP_STORE_GLOBAL: nameIdx(u16) + src(u16)
             val nameIdx = llvmReadU16(bc, ip + 1)
             val src = llvmReadU16(bc, ip + 3)
             val globalName = llvmPoolString(compiler, nameIdx)
-            // ARC write barrier: release old, retain new, store
-            val oldVal = llvmNextSSA(state)
-            llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
-            val tval = llvmNextSSA(state)
-            llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
-            llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
-            mapPut(usedExterns, "rockit_release_value", true)
-            mapPut(usedExterns, "rockit_retain_value", true)
+            if (noRuntime) {
+                // No ARC in freestanding mode — raw store
+                val tval = llvmNextSSA(state)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+            } else {
+                // ARC write barrier: release old, retain new, store
+                val oldVal = llvmNextSSA(state)
+                llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
+                val tval = llvmNextSSA(state)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+                mapPut(usedExterns, "rockit_release_value", true)
+                mapPut(usedExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 144) {
             // OP_TYPE_CHECK: dest(u16) + src(u16) + typeIdx(u16)
@@ -6832,26 +6841,35 @@ fun emitLLVMSuspendFunction(compiler: Map, funcRec: Map, sigTable: Map, definedF
             val tval = llvmNextSSA(rState)
             llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr @", globalName))))
             llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr %t", toString(dest)))))
-            // Retain on load: creates an owning reference so the value
-            // survives if the global is overwritten later.
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            mapPut(rExterns, "rockit_retain_value", true)
+            if (noRuntime == false) {
+                // Retain on load: creates an owning reference so the value
+                // survives if the global is overwritten later.
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                mapPut(rExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 84) {
             // OP_STORE_GLOBAL: nameIdx(u16) + src(u16)
             val nameIdx = llvmReadU16(bc, ip + 1)
             val src = llvmReadU16(bc, ip + 3)
             val globalName = llvmPoolString(compiler, nameIdx)
-            // ARC write barrier: release old, retain new, store
-            val oldVal = llvmNextSSA(rState)
-            llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
-            val tval = llvmNextSSA(rState)
-            llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
-            llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
-            mapPut(rExterns, "rockit_release_value", true)
-            mapPut(rExterns, "rockit_retain_value", true)
+            if (noRuntime) {
+                // No ARC in freestanding mode — raw store
+                val tval = llvmNextSSA(rState)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+            } else {
+                // ARC write barrier: release old, retain new, store
+                val oldVal = llvmNextSSA(rState)
+                llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
+                val tval = llvmNextSSA(rState)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+                mapPut(rExterns, "rockit_release_value", true)
+                mapPut(rExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 96) {
             // OP_GET_FIELD — always inline GEP: offset 24 + fieldIdx * 8
@@ -8501,9 +8519,9 @@ fun updateBackgroundNotice(currentVersion: String): Unit {
 // Build Identity (injected by build.sh)
 // ---------------------------------------------------------------------------
 val ROCKIT_VERSION: String = ""
-val ROCKIT_GIT_HASH: String = "0e4bd647fa024a681400f8a3c4db0a7c8cd5af4f"
-val ROCKIT_SOURCE_HASH: String = "sha256:7b012e4d93710bb6ae07048416159483a444347051917a2fb26663a489001f69"
-val ROCKIT_BUILD_TIMESTAMP: String = "2026-03-09T22:31:33Z"
+val ROCKIT_GIT_HASH: String = "3ac077965eb4afbacb7b6f0b7a78a17c98765644"
+val ROCKIT_SOURCE_HASH: String = "sha256:3e160175d69fb1e783897b70df9bf70885e0b978f887d20d3f333cb2d70148f2"
+val ROCKIT_BUILD_TIMESTAMP: String = "2026-03-11T01:55:46Z"
 val ROCKIT_BUILD_PLATFORM: String = "darwin-arm64"
 
 // ---------------------------------------------------------------------------
@@ -12917,7 +12935,7 @@ fun main(): Unit {
         }
 
         // -Xclang -opaque-pointers: needed for clang < 16 (harmless on 16+, -w suppresses warnings on 17+)
-        val clangBase: String = "clang -Xclang -opaque-pointers -O2 -w "
+        val clangBase: String = "clang -Xclang -opaque-pointers -O1 -w "
         var clangCmd: String = ""
         if (noRuntime) {
             // Freestanding: compile LLVM IR without runtime
