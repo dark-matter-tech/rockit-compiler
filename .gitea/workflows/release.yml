@@ -23,8 +23,13 @@ jobs:
 
       - name: Set version
         run: |
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          if echo "${GITHUB_REF_NAME}" | grep -q "^v"; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+            echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.3.0" >> "$GITHUB_ENV"
+            echo "TAG=v0.3.0" >> "$GITHUB_ENV"
+          fi
 
       - name: Checkout
         run: |
@@ -37,7 +42,9 @@ jobs:
 
       - name: Clone and build Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 https://github.com/dark-matter-tech/rockit-lang-bootstrap-compiler.git /tmp/stage0
+          mv ~/.netrc ~/.netrc.bak 2>/dev/null || true
+          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          mv ~/.netrc.bak ~/.netrc 2>/dev/null || true
           cd /tmp/stage0 && swift build -c release
 
       - name: Build Stage 1
@@ -50,12 +57,12 @@ jobs:
 
       - name: Build Fuel
         run: |
-          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${FUEL_TOKEN}" > ~/.netrc
-          chmod 600 ~/.netrc
-          git clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/fuel.git" /tmp/fuel
-          src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel --runtime-path runtime/rockit_runtime.o
-        env:
-          FUEL_TOKEN: ${{ secrets.FUEL_TOKEN }}
+          mv ~/.netrc ~/.netrc.bak 2>/dev/null || true
+          git clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
+          mv ~/.netrc.bak ~/.netrc 2>/dev/null || true
+          if [ -d /tmp/fuel ]; then
+            src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel --runtime-path runtime/rockit_runtime.o
+          fi
 
       - name: Import GPG signing key
         if: env.GPG_PRIVATE_KEY != ''
