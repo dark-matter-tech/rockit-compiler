@@ -4422,7 +4422,7 @@ fun main(): Unit {
         }
 
         // -Xclang -opaque-pointers: needed for clang < 16 (harmless on 16+, -w suppresses warnings on 17+)
-        val clangBase: String = "clang -Xclang -opaque-pointers -O2 -w "
+        val clangBase: String = "clang -Xclang -opaque-pointers -O1 -w "
         var clangCmd: String = ""
         if (noRuntime) {
             // Freestanding: compile LLVM IR without runtime
