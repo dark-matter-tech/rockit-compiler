@@ -123,7 +123,7 @@ jobs:
             --data-binary "@dist/${ARCHIVE}" \
             "${API}/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${ARCHIVE}"
         env:
-          FUEL_TOKEN: ${{ secrets.FUEL_TOKEN }}
+          FUEL_TOKEN: ${{ secrets.GITEAPAT }}
 
       - name: Mirror to GitHub
         if: env.GH_PAT != ''
@@ -151,4 +151,4 @@ jobs:
             echo "WARNING: Failed to create GitHub release"
           fi
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_MIRROR_PAT }}
