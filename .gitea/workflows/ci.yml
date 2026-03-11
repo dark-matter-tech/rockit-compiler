@@ -139,15 +139,19 @@ jobs:
           fi
           apt-get clean && rm -rf /var/lib/apt/lists/*
 
-      - name: Build compiler
+      - name: Build compiler + runtime
         run: |
+          mv ~/.netrc ~/.netrc.bak 2>/dev/null || true
           git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          mv ~/.netrc.bak ~/.netrc 2>/dev/null || true
           cd /tmp/stage0 && swift build -c release && cd -
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
           $ROCKIT build-native src/command.rok
-          mkdir -p rockit-compiler/bin
+          bash runtime/rockit/build.sh
+          mkdir -p rockit-compiler/bin rockit-compiler/share/rockit
           cp src/command rockit-compiler/bin/rockit
+          cp runtime/rockit_runtime.o rockit-compiler/share/rockit/rockit_runtime.o
           chmod +x rockit-compiler/bin/rockit
 
       - name: Determine Docker tag

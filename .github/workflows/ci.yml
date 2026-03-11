@@ -115,13 +115,15 @@ jobs:
       - name: Build Stage 0
         run: cd /tmp/stage0 && swift build -c release
 
-      - name: Build compiler
+      - name: Build compiler + runtime
         run: |
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
           $ROCKIT build-native src/command.rok
-          mkdir -p rockit-compiler/bin
+          bash runtime/rockit/build.sh
+          mkdir -p rockit-compiler/bin rockit-compiler/share/rockit
           cp src/command rockit-compiler/bin/rockit
+          cp runtime/rockit_runtime.o rockit-compiler/share/rockit/rockit_runtime.o
           chmod +x rockit-compiler/bin/rockit
 
       - name: Determine Docker tag
