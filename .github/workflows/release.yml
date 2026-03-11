@@ -32,7 +32,7 @@ jobs:
             archive_ext: tar.gz
             triple: arm64-apple-macosx
           - platform: macos-x86_64
-            runner: macos-13
+            runner: macos-14
             container: ""
             archive_ext: tar.gz
             triple: x86_64-apple-macosx
@@ -44,7 +44,7 @@ jobs:
 
     runs-on: ${{ matrix.runner }}
     container: ${{ matrix.container || null }}
-    continue-on-error: ${{ matrix.platform == 'windows-x86_64' }}
+    continue-on-error: ${{ matrix.platform == 'windows-x86_64' || matrix.platform == 'macos-x86_64' }}
     defaults:
       run:
         shell: ${{ matrix.platform == 'windows-x86_64' && 'pwsh' || 'bash' }}
@@ -112,48 +112,50 @@ jobs:
           fi
         shell: bash
 
-      - name: Build Stage 0 compiler
-        working-directory: RockitCompiler
-        run: swift build -c release
+      - name: Clone and build Stage 0
+        run: |
+          git clone --depth 1 --branch develop \
+            https://github.com/dark-matter-tech/rockit-booster.git /tmp/booster
+          cd /tmp/booster && swift build -c release
         shell: bash
 
       - name: Build Stage 1 compiler
-        working-directory: RockitCompiler
         run: |
-          .build/release/rockit build-native self-hosted-rockit/command.rok
+          bash src/build.sh
+          /tmp/booster/.build/release/rockit build-native src/command.rok
           echo "Stage 1 compiler built"
         shell: bash
 
       - name: Determine version
         run: |
-          VERSION=$(RockitCompiler/self-hosted-rockit/command version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-          echo "TAG=v${VERSION}" >> "$GITHUB_ENV"
-          echo "Detected version: ${VERSION}"
+          DETECTED=$(src/command version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+          if [ -n "$DETECTED" ]; then
+            echo "VERSION=${DETECTED}" >> "$GITHUB_ENV"
+            echo "TAG=v${DETECTED}" >> "$GITHUB_ENV"
+            echo "Detected version: ${DETECTED}"
+          elif [ "$VERSION" = "staging" ] || [ -z "$VERSION" ]; then
+            echo "VERSION=0.3.0" >> "$GITHUB_ENV"
+            echo "TAG=v0.3.0" >> "$GITHUB_ENV"
+            echo "Using default version: 0.3.0"
+          else
+            echo "Using ref version: ${VERSION}"
+          fi
         shell: bash
 
-      - name: Build Rockit runtime
-        working-directory: RockitCompiler
+      - name: Build runtime
         run: bash runtime/rockit/build.sh
         shell: bash
 
       - name: Clone and build Fuel
         run: |
-          if [ "${{ matrix.platform }}" = "linux-x86_64" ]; then
-            echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${FUEL_TOKEN}" > ~/.netrc
-            chmod 600 ~/.netrc
-            git clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/fuel.git" /tmp/fuel
-          else
-            git clone --depth 1 --branch develop "https://github.com/dark-matter-tech/fuel.git" /tmp/fuel || true
-          fi
+          git clone --depth 1 --branch develop \
+            https://github.com/dark-matter-tech/rockit-fuel.git /tmp/fuel || true
           if [ -d /tmp/fuel ]; then
-            RockitCompiler/self-hosted-rockit/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel \
-              --runtime-path RockitCompiler/runtime/rockit_runtime.o \
+            src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel \
+              --runtime-path runtime/rockit_runtime.o \
               --target-triple ${{ matrix.triple }}
           fi
         shell: bash
-        env:
-          FUEL_TOKEN: ${{ secrets.FUEL_TOKEN }}
 
       - name: Package archive (Unix)
         if: matrix.archive_ext == 'tar.gz'
@@ -161,14 +163,14 @@ jobs:
           ARCHIVE="rockit-${VERSION}-${{ matrix.platform }}.tar.gz"
           mkdir -p dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/bin
           mkdir -p dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/share/rockit
-          cp RockitCompiler/self-hosted-rockit/command dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/bin/rockit
+          cp src/command dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/bin/rockit
           chmod +x dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/bin/rockit
           if [ -f /tmp/fuel/fuel ]; then
             cp /tmp/fuel/fuel dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/bin/fuel
             chmod +x dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/bin/fuel
           fi
-          cp RockitCompiler/runtime/rockit_runtime.o dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/share/rockit/
-          cp -r RockitCompiler/self-hosted-rockit/stdlib dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/share/rockit/
+          cp runtime/rockit_runtime.o dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/share/rockit/
+          cp -r launchpad dist/rockit-${VERSION}-${{ matrix.platform }}/rockit/share/rockit/stdlib
           cd dist && tar -czf "${ARCHIVE}" "rockit-${VERSION}-${{ matrix.platform }}"
           echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
           ls -la "${ARCHIVE}"
@@ -180,11 +182,11 @@ jobs:
           $archive = "rockit-$env:VERSION-${{ matrix.platform }}.zip"
           New-Item -ItemType Directory -Force -Path "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/bin"
           New-Item -ItemType Directory -Force -Path "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/share/rockit"
-          Copy-Item "RockitCompiler/self-hosted-rockit/command.exe" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/bin/rockit.exe" -ErrorAction SilentlyContinue
-          Copy-Item "RockitCompiler/self-hosted-rockit/command" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/bin/rockit.exe" -ErrorAction SilentlyContinue
+          Copy-Item "src/command.exe" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/bin/rockit.exe" -ErrorAction SilentlyContinue
+          Copy-Item "src/command" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/bin/rockit.exe" -ErrorAction SilentlyContinue
           if (Test-Path "/tmp/fuel/fuel.exe") { Copy-Item "/tmp/fuel/fuel.exe" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/bin/fuel.exe" }
-          if (Test-Path "RockitCompiler/runtime/rockit_runtime.o") { Copy-Item "RockitCompiler/runtime/rockit_runtime.o" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/share/rockit/" }
-          Copy-Item -Recurse "RockitCompiler/self-hosted-rockit/stdlib" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/share/rockit/"
+          if (Test-Path "runtime/rockit_runtime.o") { Copy-Item "runtime/rockit_runtime.o" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/share/rockit/" }
+          Copy-Item -Recurse "launchpad" "dist/rockit-$env:VERSION-${{ matrix.platform }}/rockit/share/rockit/stdlib"
           Compress-Archive -Path "dist/rockit-$env:VERSION-${{ matrix.platform }}/*" -DestinationPath "dist/$archive"
           echo "ARCHIVE=$archive" >> $env:GITHUB_ENV
 
@@ -194,15 +196,20 @@ jobs:
           name: rockit-${{ matrix.platform }}
           path: dist/rockit-${{ env.VERSION }}-${{ matrix.platform }}.${{ matrix.archive_ext }}
 
-      # ── IntelliJ plugin (Linux only) ───────────────────────────────
+      # ── IntelliJ plugin (Linux only, if present) ──────────────────
       - name: Build IntelliJ plugin
         if: matrix.platform == 'linux-x86_64'
-        working-directory: ide/intellij-rockit
         run: |
-          chmod +x gradlew
-          ./gradlew buildPlugin
-          PLUGIN_ZIP=$(find build/distributions -name '*.zip' -print -quit)
-          echo "PLUGIN_ZIP=${PLUGIN_ZIP}" >> "$GITHUB_ENV"
+          if [ -d ide/intellij-rockit ]; then
+            cd ide/intellij-rockit
+            chmod +x gradlew
+            ./gradlew buildPlugin
+            PLUGIN_ZIP=$(find build/distributions -name '*.zip' -print -quit)
+            echo "PLUGIN_ZIP=${PLUGIN_ZIP}" >> "$GITHUB_ENV"
+          else
+            echo "No IntelliJ plugin directory — skipping"
+          fi
+        shell: bash
 
       - name: Upload IntelliJ plugin
         if: matrix.platform == 'linux-x86_64' && env.PLUGIN_ZIP != ''
@@ -220,15 +227,19 @@ jobs:
         with:
           path: artifacts/
 
-      - name: Set version
+      - name: Detect version from artifacts
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
-            echo "TAG=v${{ inputs.version }}" >> "$GITHUB_ENV"
+          TARBALL=$(ls artifacts/rockit-linux-x86_64/rockit-*-linux-x86_64.tar.gz 2>/dev/null | head -1)
+          if [ -n "$TARBALL" ]; then
+            VERSION=$(echo "$TARBALL" | sed 's/.*rockit-\(.*\)-linux-x86_64.tar.gz/\1/')
+          elif [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
           else
-            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-            echo "TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+            VERSION="0.3.0"
           fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "TAG=v${VERSION}" >> "$GITHUB_ENV"
+          echo "Detected version: ${VERSION}"
 
       - name: List artifacts
         run: find artifacts/ -type f | sort
@@ -287,7 +298,7 @@ jobs:
           RELEASE_BODY+="## What's Included\n\n"
           RELEASE_BODY+="- **rockit** — The Rockit compiler (Stage 1, self-hosted)\n"
           RELEASE_BODY+="- **fuel** — The Rockit package manager\n"
-          RELEASE_BODY+="- **stdlib** — Standard library (22 modules)\n"
+          RELEASE_BODY+="- **stdlib** — Standard library (15 modules)\n"
           RELEASE_BODY+="- **rockit_runtime.o** — Prebuilt runtime\n\n"
           RELEASE_BODY+="## Platforms\n\n"
           RELEASE_BODY+="| Platform | Archive |\n|----------|--------|\n"
@@ -352,12 +363,14 @@ jobs:
       - name: Create release (GitHub)
         if: env.IS_GITHUB == 'true'
         run: |
+          gh release delete "${TAG}" --repo "${GITHUB_REPOSITORY}" --yes 2>/dev/null || true
+
           RELEASE_BODY=$(cat <<'BODY'
           ## What's Included
 
           - **rockit** — The Rockit compiler (Stage 1, self-hosted)
           - **fuel** — The Rockit package manager
-          - **stdlib** — Standard library (22 modules)
+          - **stdlib** — Standard library (15 modules)
           - **rockit_runtime.o** — Prebuilt runtime
 
           ## Platforms
@@ -372,7 +385,7 @@ jobs:
           ## Install
 
           ```bash
-          curl -fsSL https://github.com/dark-matter-tech/rockit/raw/master/RockitCompiler/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/dark-matter-tech/rockit-lang/develop/scripts/install.sh | bash
           ```
           BODY
           )
