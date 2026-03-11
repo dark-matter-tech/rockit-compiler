@@ -4455,6 +4455,13 @@ fun main(): Unit {
                     clangCmd = stringConcat(clangBase, stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lm -o ", outputFile)))))
                 }
             }
+            // OpenSSL link flags (C runtime uses OpenSSL for TLS/crypto)
+            val osName: String = toString(platformOS())
+            if (osName == "macos") {
+                clangCmd = stringConcat(clangCmd, " -lssl -lcrypto -L/opt/homebrew/opt/openssl@3/lib")
+            } else {
+                clangCmd = stringConcat(clangCmd, " -lssl -lcrypto")
+            }
         }
         val exitCode = systemExec(clangCmd)
         // Clean up temp .ll file
