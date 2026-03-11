@@ -1526,26 +1526,35 @@ fun emitLLVMFunction(compiler: Map, funcRec: Map, sigTable: Map, definedFuncs: M
             val tval = llvmNextSSA(state)
             llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr @", globalName))))
             llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr %t", toString(dest)))))
-            // Retain on load: creates an owning reference so the value
-            // survives if the global is overwritten later.
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            mapPut(usedExterns, "rockit_retain_value", true)
+            if (noRuntime == false) {
+                // Retain on load: creates an owning reference so the value
+                // survives if the global is overwritten later.
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                mapPut(usedExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 84) {
             // OP_STORE_GLOBAL: nameIdx(u16) + src(u16)
             val nameIdx = llvmReadU16(bc, ip + 1)
             val src = llvmReadU16(bc, ip + 3)
             val globalName = llvmPoolString(compiler, nameIdx)
-            // ARC write barrier: release old, retain new, store
-            val oldVal = llvmNextSSA(state)
-            llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
-            val tval = llvmNextSSA(state)
-            llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
-            llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
-            mapPut(usedExterns, "rockit_release_value", true)
-            mapPut(usedExterns, "rockit_retain_value", true)
+            if (noRuntime) {
+                // No ARC in freestanding mode — raw store
+                val tval = llvmNextSSA(state)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+            } else {
+                // ARC write barrier: release old, retain new, store
+                val oldVal = llvmNextSSA(state)
+                llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
+                val tval = llvmNextSSA(state)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+                mapPut(usedExterns, "rockit_release_value", true)
+                mapPut(usedExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 144) {
             // OP_TYPE_CHECK: dest(u16) + src(u16) + typeIdx(u16)
@@ -2079,26 +2088,35 @@ fun emitLLVMSuspendFunction(compiler: Map, funcRec: Map, sigTable: Map, definedF
             val tval = llvmNextSSA(rState)
             llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr @", globalName))))
             llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr %t", toString(dest)))))
-            // Retain on load: creates an owning reference so the value
-            // survives if the global is overwritten later.
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            mapPut(rExterns, "rockit_retain_value", true)
+            if (noRuntime == false) {
+                // Retain on load: creates an owning reference so the value
+                // survives if the global is overwritten later.
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                mapPut(rExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 84) {
             // OP_STORE_GLOBAL: nameIdx(u16) + src(u16)
             val nameIdx = llvmReadU16(bc, ip + 1)
             val src = llvmReadU16(bc, ip + 3)
             val globalName = llvmPoolString(compiler, nameIdx)
-            // ARC write barrier: release old, retain new, store
-            val oldVal = llvmNextSSA(rState)
-            llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
-            val tval = llvmNextSSA(rState)
-            llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
-            llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
-            llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
-            llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
-            mapPut(rExterns, "rockit_release_value", true)
-            mapPut(rExterns, "rockit_retain_value", true)
+            if (noRuntime) {
+                // No ARC in freestanding mode — raw store
+                val tval = llvmNextSSA(rState)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+            } else {
+                // ARC write barrier: release old, retain new, store
+                val oldVal = llvmNextSSA(rState)
+                llvmLine(buf, stringConcat("  ", stringConcat(oldVal, stringConcat(" = load i64, ptr @", globalName))))
+                val tval = llvmNextSSA(rState)
+                llvmLine(buf, stringConcat("  ", stringConcat(tval, stringConcat(" = load i64, ptr %t", toString(src)))))
+                llvmLine(buf, stringConcat("  call void @rockit_release_value(i64 ", stringConcat(oldVal, ")")))
+                llvmLine(buf, stringConcat("  call void @rockit_retain_value(i64 ", stringConcat(tval, ")")))
+                llvmLine(buf, stringConcat("  store i64 ", stringConcat(tval, stringConcat(", ptr @", globalName))))
+                mapPut(rExterns, "rockit_release_value", true)
+                mapPut(rExterns, "rockit_retain_value", true)
+            }
             ip = ip + 5
         } else if (op == 96) {
             // OP_GET_FIELD — always inline GEP: offset 24 + fieldIdx * 8
