@@ -38,8 +38,8 @@ jobs:
           curl -sL -H "Authorization: token ${GITEA_PAT}" \
             "${API}/packages/Dark-Matter/generic/rockit-toolchain/latest/rockit-toolchain-linux-x86_64.tar.gz" \
             -o /tmp/toolchain.tar.gz
-          cd /tmp && tar -xzf toolchain.tar.gz
-          cp -r /tmp/rockit-toolchain .
+          tar -xzf /tmp/toolchain.tar.gz -C /tmp
+          cp -r /tmp/rockit-toolchain "$GITHUB_WORKSPACE/rockit-toolchain"
           chmod +x rockit-toolchain/bin/rockit
           rockit-toolchain/bin/rockit version
         env:
