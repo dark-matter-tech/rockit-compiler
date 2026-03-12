@@ -39,7 +39,8 @@ cat "${STAGE1_DIR}/codegen.rok" >> "$OUTPUT"
 # ---------------------------------------------------------------------------
 # Inject build identity
 # ---------------------------------------------------------------------------
-VERSION="$(cat "${STAGE1_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]' || echo "0.1.0")"
+VERSION="$(cat "${STAGE1_DIR}/VERSION" 2>/dev/null | tr -d '[:space:]')"
+VERSION="${VERSION:-0.3.0}"
 GIT_HASH="$(git rev-parse HEAD 2>/dev/null || echo "unknown")"
 BUILD_TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 PLATFORM="$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
