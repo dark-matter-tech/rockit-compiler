@@ -38,7 +38,8 @@ jobs:
 
       - name: Clone Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 "https://x-access-token:${GH_MIRROR_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
+            clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
         env:
           GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
@@ -159,7 +160,8 @@ jobs:
 
       - name: Build compiler + runtime
         run: |
-          git clone --depth 1 "https://x-access-token:${GH_MIRROR_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
+            clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release && cd -
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
