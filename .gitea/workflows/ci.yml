@@ -169,6 +169,8 @@ jobs:
           cp src/command rockit-compiler/bin/rockit
           cp runtime/rockit_runtime.o rockit-compiler/share/rockit/rockit_runtime.o
           chmod +x rockit-compiler/bin/rockit
+        env:
+          GITEAPAT: ${{ secrets.GITEAPAT }}
 
       - name: Determine Docker tag
         run: |
