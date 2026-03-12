@@ -42,7 +42,8 @@ jobs:
 
       - name: Clone and build Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 "https://x-access-token:${GH_MIRROR_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
+            clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release
         env:
           GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
@@ -57,7 +58,8 @@ jobs:
 
       - name: Build Fuel
         run: |
-          git clone --depth 1 --branch develop "https://x-access-token:${GH_MIRROR_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
+          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
+            clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
           if [ -d /tmp/fuel ]; then
             src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel --runtime-path runtime/rockit_runtime.o
           fi
