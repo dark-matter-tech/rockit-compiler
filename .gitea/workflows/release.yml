@@ -42,10 +42,10 @@ jobs:
 
       - name: Clone and build Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 "https://x-access-token:${GITEAPAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          git clone --depth 1 "https://x-access-token:${GH_MIRROR_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release
         env:
-          GITEAPAT: ${{ secrets.GITEAPAT }}
+          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: Build Stage 1
         run: |
@@ -57,12 +57,12 @@ jobs:
 
       - name: Build Fuel
         run: |
-          git clone --depth 1 --branch develop "https://x-access-token:${GITEAPAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
+          git clone --depth 1 --branch develop "https://x-access-token:${GH_MIRROR_PAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
           if [ -d /tmp/fuel ]; then
             src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel --runtime-path runtime/rockit_runtime.o
           fi
         env:
-          GITEAPAT: ${{ secrets.GITEAPAT }}
+          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: Import GPG signing key
         if: env.GPG_PRIVATE_KEY != ''
@@ -123,7 +123,7 @@ jobs:
             --data-binary "@dist/${ARCHIVE}" \
             "${API}/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${ARCHIVE}"
         env:
-          FUEL_TOKEN: ${{ secrets.GITEAPAT }}
+          FUEL_TOKEN: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: Mirror to GitHub
         if: env.GH_MIRROR_PAT != ''

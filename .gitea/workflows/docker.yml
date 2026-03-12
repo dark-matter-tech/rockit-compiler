@@ -35,7 +35,7 @@ jobs:
       - name: Download toolchain package
         run: |
           API="${GITHUB_SERVER_URL}/api"
-          curl -sL -H "Authorization: token ${GITEA_PAT}" \
+          curl -sL -H "Authorization: token ${GH_MIRROR_PAT}" \
             "${API}/packages/Dark-Matter/generic/rockit-toolchain/latest/rockit-toolchain-linux-x86_64.tar.gz" \
             -o /tmp/toolchain.tar.gz
           tar -xzf /tmp/toolchain.tar.gz -C /tmp
@@ -43,14 +43,14 @@ jobs:
           chmod +x rockit-toolchain/bin/rockit
           rockit-toolchain/bin/rockit version
         env:
-          GITEA_PAT: ${{ secrets.GITEAPAT }}
+          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: Log in to Gitea Container Registry
         run: |
           REGISTRY="${GITHUB_SERVER_URL#https://}"
-          echo "${GITEA_PAT}" | docker login "${REGISTRY}" -u burnside --password-stdin
+          echo "${GH_MIRROR_PAT}" | docker login "${REGISTRY}" -u burnside --password-stdin
         env:
-          GITEA_PAT: ${{ secrets.GITEAPAT }}
+          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: Build image
         run: |
