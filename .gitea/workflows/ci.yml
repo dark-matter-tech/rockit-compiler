@@ -38,7 +38,9 @@ jobs:
 
       - name: Clone Stage 0 (bootstrap compiler)
         run: |
-          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          git clone --depth 1 "https://x-access-token:${GITEAPAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
+        env:
+          GITEAPAT: ${{ secrets.GITEAPAT }}
 
       - name: Build Stage 0
         run: cd /tmp/stage0 && swift build -c release
@@ -123,7 +125,7 @@ jobs:
             https://api.github.com/repos/dark-matter-tech/rockit-lang/dispatches \
             -d "{\"event_type\":\"integration-test\",\"client_payload\":{\"repo\":\"rockit-compiler\",\"ref\":\"${GITHUB_REF_NAME}\"}}"
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          GH_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
   docker:
     name: Push Docker Image
@@ -157,9 +159,7 @@ jobs:
 
       - name: Build compiler + runtime
         run: |
-          mv ~/.netrc ~/.netrc.bak 2>/dev/null || true
-          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
-          mv ~/.netrc.bak ~/.netrc 2>/dev/null || true
+          git clone --depth 1 "https://x-access-token:${GITEAPAT}@${GITHUB_SERVER_URL#https://}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release && cd -
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
