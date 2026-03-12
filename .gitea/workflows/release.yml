@@ -42,11 +42,12 @@ jobs:
 
       - name: Clone and build Stage 0 (bootstrap compiler)
         run: |
-          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
-            clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITEAPAT}" > ~/.netrc
+          chmod 600 ~/.netrc
+          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release
         env:
-          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
+          GITEAPAT: ${{ secrets.GITEAPAT }}
 
       - name: Build Stage 1
         run: |
@@ -58,13 +59,10 @@ jobs:
 
       - name: Build Fuel
         run: |
-          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
-            clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
+          git clone --depth 1 --branch develop "${GITHUB_SERVER_URL}/Dark-Matter/rockit-fuel.git" /tmp/fuel || true
           if [ -d /tmp/fuel ]; then
             src/command build-native /tmp/fuel/src/fuel.rok -o /tmp/fuel/fuel --runtime-path runtime/rockit_runtime.o
           fi
-        env:
-          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
 
       - name: Import GPG signing key
         if: env.GPG_PRIVATE_KEY != ''
@@ -115,17 +113,17 @@ jobs:
         run: |
           API="${GITHUB_SERVER_URL}/api/v1"
           RELEASE_ID=$(curl -s -X POST \
-            -H "Authorization: token ${FUEL_TOKEN}" \
+            -H "Authorization: token ${GITEAPAT}" \
             -H "Content-Type: application/json" \
             "${API}/repos/${GITHUB_REPOSITORY}/releases" \
             -d "{\"tag_name\": \"${TAG}\", \"name\": \"Rockit ${TAG}\", \"body\": \"Release ${TAG}\"}" | jq -r '.id')
           curl -s -X POST \
-            -H "Authorization: token ${FUEL_TOKEN}" \
+            -H "Authorization: token ${GITEAPAT}" \
             -H "Content-Type: application/gzip" \
             --data-binary "@dist/${ARCHIVE}" \
             "${API}/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=${ARCHIVE}"
         env:
-          FUEL_TOKEN: ${{ secrets.GH_MIRROR_PAT }}
+          GITEAPAT: ${{ secrets.GITEAPAT }}
 
       - name: Mirror to GitHub
         if: env.GH_MIRROR_PAT != ''
