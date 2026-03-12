@@ -38,10 +38,11 @@ jobs:
 
       - name: Clone Stage 0 (bootstrap compiler)
         run: |
-          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
-            clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITEAPAT}" > ~/.netrc
+          chmod 600 ~/.netrc
+          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
         env:
-          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
+          GITEAPAT: ${{ secrets.GITEAPAT }}
 
       - name: Build Stage 0
         run: cd /tmp/stage0 && swift build -c release
@@ -160,8 +161,9 @@ jobs:
 
       - name: Build compiler + runtime
         run: |
-          git -c http.extraHeader="Authorization: token ${GH_MIRROR_PAT}" \
-            clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
+          echo "machine ${GITHUB_SERVER_URL#https://} login x-access-token password ${GITEAPAT}" > ~/.netrc
+          chmod 600 ~/.netrc
+          git clone --depth 1 "${GITHUB_SERVER_URL}/Dark-Matter/rockit-booster.git" /tmp/stage0
           cd /tmp/stage0 && swift build -c release && cd -
           ROCKIT=/tmp/stage0/.build/release/rockit
           bash src/build.sh
@@ -172,7 +174,7 @@ jobs:
           cp runtime/rockit_runtime.o rockit-compiler/share/rockit/rockit_runtime.o
           chmod +x rockit-compiler/bin/rockit
         env:
-          GH_MIRROR_PAT: ${{ secrets.GH_MIRROR_PAT }}
+          GITEAPAT: ${{ secrets.GITEAPAT }}
 
       - name: Determine Docker tag
         run: |
