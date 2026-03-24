@@ -4274,16 +4274,51 @@ fun findRuntimePath(sourceDir: String): String {
 fun main(): Unit {
     val args = processArgs()
     if (listSize(args) < 1) {
-        println("Usage: rockit compile <source.rok> [-o output] [--no-check] [--optimize] [--emit-llvm] [--lib-path <path>]")
-        println("       rockit build-native <source.rok> [-o output] [--no-check] [--optimize] [--runtime-path <path>] [--lib-path <path>]")
-        println("       rockit repl")
-        println("       rockit version")
-        println("       rockit update [--check] [--channel <stable|beta|nightly>]")
-        println("       rockit verify-bootstrap")
+        println("Usage: rockit run <file.rok>                 Run a Rockit program")
+        println("       rockit build-native <file.rok> -o out  Compile to native binary")
+        println("       rockit compile <file.rok>              Compile to bytecode")
+        println("       rockit repl                            Interactive REPL")
+        println("       rockit test <file.rok>                 Run tests")
+        println("       rockit version                         Show version")
+        println("       rockit update                          Update to latest version")
         return
     }
 
     val command = toString(listGet(args, 0))
+
+    // Startup update check (every 24h)
+    updateBackgroundNotice(ROCKIT_VERSION)
+
+    // Run: build-native to temp, execute, clean up
+    if (command == "run" || command == "run-native") {
+        if (listSize(args) < 2) {
+            println("Usage: rockit run <file.rok>")
+            return
+        }
+        val sourceFile = toString(listGet(args, 1))
+        val tmpBin = "/tmp/rockit_run_" + toString(currentTimeMillis())
+        val selfPath = executablePath()
+        var buildCmd: String = selfPath + " build-native " + sourceFile + " -o " + tmpBin
+        var bai: Int = 2
+        while (bai < listSize(args)) {
+            val ba = toString(listGet(args, bai))
+            if (ba == "--runtime-path") {
+                if (bai + 1 < listSize(args)) {
+                    buildCmd = buildCmd + " --runtime-path " + toString(listGet(args, bai + 1))
+                    bai = bai + 2
+                } else {
+                    bai = bai + 1
+                }
+            } else {
+                bai = bai + 1
+            }
+        }
+        val buildExit = systemExec(buildCmd)
+        if (buildExit != 0) { return }
+        systemExec(tmpBin)
+        fileDelete(tmpBin)
+        return
+    }
 
     // REPL mode
     if (command == "repl") {
