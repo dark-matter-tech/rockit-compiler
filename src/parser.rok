@@ -69,11 +69,26 @@ fun skipNewlines(p: Map): Unit {
     }
 }
 
+fun isSoftKeyword(tokType: String): Bool {
+    if (tokType == "KW_DATA") { return true }
+    if (tokType == "KW_ROUTE") { return true }
+    if (tokType == "KW_STYLE") { return true }
+    if (tokType == "KW_INIT") { return true }
+    if (tokType == "KW_IN") { return true }
+    if (tokType == "KW_OUT") { return true }
+    if (tokType == "KW_IS") { return true }
+    return false
+}
+
 fun expect(p: Map, expectedType: String): Map {
     skipNewlines(p)
     val tok = peekToken(p)
     val tokType = toString(mapGet(tok, "type"))
     if (tokType == expectedType) {
+        return advance(p)
+    }
+    // Accept soft keywords as identifiers
+    if (expectedType == "IDENT" && isSoftKeyword(tokType)) {
         return advance(p)
     }
     // Error: unexpected token
@@ -94,7 +109,10 @@ fun matchToken(p: Map, expectedType: String): Bool {
 
 fun check(p: Map, expectedType: String): Bool {
     skipNewlines(p)
-    return peekType(p) == expectedType
+    val tt = peekType(p)
+    if (tt == expectedType) { return true }
+    if (expectedType == "IDENT" && isSoftKeyword(tt)) { return true }
+    return false
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +130,11 @@ fun makeNodeAt(kind: String, line: Int, col: Int): Map {
     mapPut(node, "line", line)
     mapPut(node, "col", col)
     return node
+}
+
+fun setEndPos(p: Map, node: Map): Unit {
+    mapPut(node, "endLine", peekLine(p))
+    mapPut(node, "endCol", peekCol(p))
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +357,7 @@ fun parsePrimary(p: Map): Map {
     }
 
     // Identifier (or keyword used as identifier)
-    if (tt == "IDENT" || tt == "KW_THIS" || tt == "KW_SUPER") {
+    if (tt == "IDENT" || tt == "KW_THIS" || tt == "KW_SUPER" || isSoftKeyword(tt)) {
         val tok = advance(p)
         val node = makeNodeAt("ident", line, col)
         val identName = toString(mapGet(tok, "value"))
@@ -619,6 +642,7 @@ fun parseIfExpr(p: Map): Map {
             mapPut(node, "else", parseBlock(p))
         }
     }
+    setEndPos(p, node)
     return node
 }
 
@@ -768,6 +792,7 @@ fun parseWhenExpr(p: Map): Map {
     }
     expect(p, "RBRACE")
     mapPut(node, "branches", branches)
+    setEndPos(p, node)
     return node
 }
 
@@ -799,6 +824,7 @@ fun parseTryCatch(p: Map): Map {
     if (matchToken(p, "KW_FINALLY")) {
         mapPut(node, "finallyBody", parseBlock(p))
     }
+    setEndPos(p, node)
     return node
 }
 
@@ -819,6 +845,7 @@ fun parseBlock(p: Map): Map {
     expect(p, "RBRACE")
     val node = makeNode("block")
     mapPut(node, "stmts", stmts)
+    setEndPos(p, node)
     return node
 }
 
@@ -906,6 +933,7 @@ fun parseValDecl(p: Map): Map {
     }
     expect(p, "EQ")
     mapPut(node, "init", parseExpression(p, 0))
+    setEndPos(p, node)
     return node
 }
 
@@ -934,6 +962,7 @@ fun parseVarDecl(p: Map): Map {
     }
     expect(p, "EQ")
     mapPut(node, "init", parseExpression(p, 0))
+    setEndPos(p, node)
     return node
 }
 
@@ -971,6 +1000,7 @@ fun parseWhile(p: Map): Map {
     val node = makeNodeAt("while", line, col)
     mapPut(node, "condition", condition)
     mapPut(node, "body", body)
+    setEndPos(p, node)
     return node
 }
 
@@ -1035,6 +1065,7 @@ fun parseFor(p: Map): Map {
     mapPut(node, "variable", varName)
     mapPut(node, "iterable", iterable)
     mapPut(node, "body", body)
+    setEndPos(p, node)
     return node
 }
 
@@ -1150,6 +1181,7 @@ fun parseFunDecl(p: Map): Map {
         }
     }
 
+    setEndPos(p, node)
     return node
 }
 
@@ -1267,6 +1299,7 @@ fun parseClassDecl(p: Map): Map {
         mapPut(node, "body", parseClassBody(p))
     }
 
+    setEndPos(p, node)
     return node
 }
 
@@ -1347,6 +1380,7 @@ fun parseInterfaceDecl(p: Map): Map {
     if (check(p, "LBRACE")) {
         mapPut(node, "body", parseClassBody(p))
     }
+    setEndPos(p, node)
     return node
 }
 
@@ -1368,18 +1402,18 @@ fun parseEnumDecl(p: Map): Map {
             val entryName = toString(mapGet(advance(p), "value"))
             val entry = makeNode("enumEntry")
             mapPut(entry, "name", entryName)
-            // Constructor args
+            // Associated value parameters: Success(value: Int)
             if (check(p, "LPAREN")) {
                 advance(p)
-                val args = listCreate()
+                val params = listCreate()
                 if (!check(p, "RPAREN")) {
-                    listAppend(args, parseExpression(p, 0))
+                    listAppend(params, parseParam(p))
                     while (matchToken(p, "COMMA")) {
-                        listAppend(args, parseExpression(p, 0))
+                        listAppend(params, parseParam(p))
                     }
                 }
                 expect(p, "RPAREN")
-                mapPut(entry, "args", args)
+                mapPut(entry, "params", params)
             }
             listAppend(entries, entry)
             matchToken(p, "COMMA")
@@ -1411,6 +1445,7 @@ fun parseEnumDecl(p: Map): Map {
     }
     mapPut(node, "methods", methods)
     expect(p, "RBRACE")
+    setEndPos(p, node)
     return node
 }
 
@@ -1424,6 +1459,7 @@ fun parseObjectDecl(p: Map): Map {
     if (check(p, "LBRACE")) {
         mapPut(node, "body", parseClassBody(p))
     }
+    setEndPos(p, node)
     return node
 }
 

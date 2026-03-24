@@ -105,6 +105,9 @@ fun registerBuiltins(tc: Map): Unit {
     registerFn(fns, "println", 1, "Unit")
     registerFn(fns, "print", 1, "Unit")
     registerFn(fns, "readLine", 0, "String")
+    registerFn(fns, "stdinReadN", 1, "String")
+    registerFn(fns, "flushStdout", 0, "Unit")
+    registerFn(fns, "writeStderr", 1, "Unit")
 
     // Conversion
     registerFn(fns, "toString", 1, "String")
@@ -730,8 +733,12 @@ fun tcCheckStmt(tc: Map, stmt: Map): Unit {
         val target = mapGet(stmt, "target")
         val value = mapGet(stmt, "value")
         if (target != null && value != null) {
-            tcInferExpr(tc, target)
+            val targetType = tcInferExpr(tc, target)
             tcInferExpr(tc, value)
+            val caOp = toString(mapGet(stmt, "op"))
+            if (targetType == "String" && caOp == "+=") {
+                mapPut(stmt, "_stringOp", true)
+            }
         }
     } else if (kind == "return") {
         val value = mapGet(stmt, "value")
@@ -1019,7 +1026,21 @@ fun tcInferExpr(tc: Map, expr: Map): String {
         }
         // Arithmetic operators
         if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%") {
-            if (leftType == "String" && op == "+") { return "String" }
+            if (leftType == "String" && op == "+") {
+                mapPut(expr, "_stringOp", true)
+                return "String"
+            }
+            // Narrow integer type preservation
+            if (leftType == rightType) {
+                if (leftType == "Int8") { return "Int8" }
+                if (leftType == "Int16") { return "Int16" }
+                if (leftType == "Int32") { return "Int32" }
+                if (leftType == "Int64") { return "Int64" }
+                if (leftType == "UInt8") { return "UInt8" }
+                if (leftType == "UInt16") { return "UInt16" }
+                if (leftType == "UInt32") { return "UInt32" }
+                if (leftType == "UInt64") { return "UInt64" }
+            }
             if (leftType == "Int" && rightType == "Int") { return "Int" }
             if (leftType == "Float" || rightType == "Float") { return "Float" }
             if (leftType == "Any" || rightType == "Any") { return "Any" }

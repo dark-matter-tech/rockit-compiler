@@ -927,6 +927,14 @@ fun compileExpr(fs: Map, node: Map): Int {
         val leftReg = compileExpr(fs, mapGet(node, "left"))
         val rightReg = compileExpr(fs, mapGet(node, "right"))
         val dest = allocReg(fs)
+        // String + emits a call to stringConcat instead of OP_ADD
+        if (mapGet(node, "_stringOp") != null) {
+            val concatArgs = listCreate()
+            listAppend(concatArgs, leftReg)
+            listAppend(concatArgs, rightReg)
+            emitCall(fs, dest, "stringConcat", concatArgs)
+            return dest
+        }
         val isFloat = mapGet(node, "_floatOp") != null
         emitBinaryOpFloat(fs, op, dest, leftReg, rightReg, isFloat)
         return dest
@@ -1798,7 +1806,26 @@ fun compileWhenExpr(fs: Map, node: Map): Int {
                     // Type check pattern: is Type or is Type(val a, val b)
                     val typeNode = mapGet(pattern, "type")
                     val typeName = toString(mapGet(typeNode, "name"))
-                    emitTypeCheck(fs, singleCond, subjectReg, typeName)
+                    // Check if this is an enum variant (e.g., "Option.Some")
+                    var isEnumVariant: Bool = false
+                    val dotIdx = stringIndexOf(typeName, ".")
+                    if (dotIdx > 0) {
+                        val enumPart = substring(typeName, 0, dotIdx)
+                        val enumEntries = mapGet(mapGet(mapGet(fs, "compiler"), "enumNames"), enumPart)
+                        if (enumEntries != null) {
+                            isEnumVariant = true
+                            // Compare __variant field against variant name
+                            val variantName = substring(typeName, dotIdx + 1, stringLength(typeName))
+                            val subjectVariant = allocReg(fs)
+                            emitGetField(fs, subjectVariant, subjectReg, "__variant")
+                            val variantLit = allocReg(fs)
+                            emitConstString(fs, variantLit, variantName)
+                            emitBinaryOp(fs, "==", singleCond, subjectVariant, variantLit)
+                        }
+                    }
+                    if (isEnumVariant == false) {
+                        emitTypeCheck(fs, singleCond, subjectReg, typeName)
+                    }
                 } else {
                     // Value equality pattern — check if it's an enum member
                     var isEnumPat: Bool = false
@@ -1842,19 +1869,36 @@ fun compileWhenExpr(fs: Map, node: Map): Int {
                 if (toString(mapGet(dpat, "kind")) == "isDestructPattern") {
                     val dBindings = mapGet(dpat, "bindings")
                     val dTypeName = toString(mapGet(mapGet(dpat, "type"), "name"))
-                    // Look up field names from the class
-                    val classInfo = mapGet(mapGet(mapGet(fs, "compiler"), "classNames"), dTypeName)
-                    val classFields = mapGet(mapGet(mapGet(fs, "compiler"), "classFieldNames"), dTypeName)
+
+                    // Check if this is an enum variant (e.g., "Option.Some")
+                    var isEnumDestr: Bool = false
+                    val dotIdx2 = stringIndexOf(dTypeName, ".")
+                    if (dotIdx2 > 0) {
+                        val enumBase = substring(dTypeName, 0, dotIdx2)
+                        val enumEntries2 = mapGet(mapGet(mapGet(fs, "compiler"), "enumNames"), enumBase)
+                        if (enumEntries2 != null) {
+                            isEnumDestr = true
+                        }
+                    }
+
                     var dbi: Int = 0
                     while (dbi < listSize(dBindings)) {
                         val bindName = toString(listGet(dBindings, dbi))
-                        // Get field name by position (or use binding name as fallback)
                         var fieldName: String = bindName
-                        if (classFields != null) {
-                            if (dbi < listSize(classFields)) {
-                                fieldName = toString(listGet(classFields, dbi))
+
+                        if (isEnumDestr) {
+                            // Enum variant: payload stored in __payload0, __payload1, ...
+                            fieldName = "__payload" + toString(dbi)
+                        } else {
+                            // Regular class: look up field names
+                            val classFields = mapGet(mapGet(mapGet(fs, "compiler"), "classFieldNames"), dTypeName)
+                            if (classFields != null) {
+                                if (dbi < listSize(classFields)) {
+                                    fieldName = toString(listGet(classFields, dbi))
+                                }
                             }
                         }
+
                         val fieldReg = allocReg(fs)
                         emitGetField(fs, fieldReg, subjectReg, fieldName)
                         val slot = allocReg(fs)
@@ -2090,7 +2134,15 @@ fun compileStmt(fs: Map, node: Map): Unit {
                 if (op == "/=") { actualOp = "/" }
                 if (op == "%=") { actualOp = "%" }
                 val resultReg = allocReg(fs)
-                emitBinaryOp(fs, actualOp, resultReg, currentReg, valueReg)
+                // String += emits a call to stringConcat
+                if (mapGet(node, "_stringOp") != null) {
+                    val concatArgs = listCreate()
+                    listAppend(concatArgs, currentReg)
+                    listAppend(concatArgs, valueReg)
+                    emitCall(fs, resultReg, "stringConcat", concatArgs)
+                } else {
+                    emitBinaryOp(fs, actualOp, resultReg, currentReg, valueReg)
+                }
                 emitStore(fs, slotInt, resultReg)
             } else {
                 // Check if it's a mutable global variable
@@ -3129,7 +3181,10 @@ fun compileClassDecl(compiler: Map, decl: Map): Unit {
                 mapPut(toStrCallee, "name", "toString")
                 mapPut(toStrCall, "callee", toStrCallee)
                 val toStrArgs = listCreate()
-                val fieldAccess = makeNode("ident")
+                val fieldAccess = makeNode("member")
+                val thisNode = makeNode("ident")
+                mapPut(thisNode, "name", "this")
+                mapPut(fieldAccess, "object", thisNode)
                 mapPut(fieldAccess, "name", fname)
                 listAppend(toStrArgs, fieldAccess)
                 mapPut(toStrCall, "args", toStrArgs)
@@ -3282,12 +3337,60 @@ fun compileEnumDecl(compiler: Map, decl: Map): Unit {
     }
     mapPut(mapGet(compiler, "enumNames"), enumName, entryNames)
 
-    // Build type record with __variant field
+    // Scan all variants' parameters to find the max field count
+    var maxParams: Int = 0
+    if (entries != null) {
+        var si: Int = 0
+        while (si < listSize(entries)) {
+            val entry = listGet(entries, si)
+            val params = mapGet(entry, "params")
+            if (params != null) {
+                val pc = listSize(params)
+                if (pc > maxParams) { maxParams = pc }
+            }
+            si = si + 1
+        }
+    }
+
+    // Build type record: __variant field + payload fields (union-style)
     val fields = listCreate()
     val variantField = mapCreate()
     mapPut(variantField, "name", "__variant")
     mapPut(variantField, "typeName", "String")
     listAppend(fields, variantField)
+
+    // Add payload fields: __payload0, __payload1, ... for the max variant size
+    var fi: Int = 0
+    while (fi < maxParams) {
+        val pf = mapCreate()
+        mapPut(pf, "name", "__payload" + toString(fi))
+        mapPut(pf, "typeName", "Any")
+        listAppend(fields, pf)
+        fi = fi + 1
+    }
+
+    // Track variant field mappings for pattern matching
+    val variantFields = mapCreate()
+    if (entries != null) {
+        var vi: Int = 0
+        while (vi < listSize(entries)) {
+            val entry = listGet(entries, vi)
+            val eName = toString(mapGet(entry, "name"))
+            val params = mapGet(entry, "params")
+            if (params != null) {
+                val fieldNames = listCreate()
+                var pi: Int = 0
+                while (pi < listSize(params)) {
+                    val param = listGet(params, pi)
+                    listAppend(fieldNames, toString(mapGet(param, "name")))
+                    pi = pi + 1
+                }
+                mapPut(variantFields, enumName + "." + eName, fieldNames)
+            }
+            vi = vi + 1
+        }
+    }
+    mapPut(mapGet(compiler, "enumNames"), enumName + "__fields", variantFields)
 
     val methodNames = listCreate()
 
@@ -3304,14 +3407,16 @@ fun compileEnumDecl(compiler: Map, decl: Map): Unit {
     var ei: Int = 0
     while (ei < listSize(entryNames)) {
         val entryName = toString(listGet(entryNames, ei))
-        val initName = stringConcat("__init_", stringConcat(enumName, stringConcat("_", entryName)))
+        val initName = "__init_" + enumName + "_" + entryName
 
-        // Build synthetic function body:
-        // val v = "EntryName"
-        // return NewObject(EnumName, v)
+        // Get this variant's parameters
+        val entry = listGet(entries, ei)
+        val variantParams = mapGet(entry, "params")
+
+        // Build synthetic function body
         val stmts = listCreate()
 
-        // val v = "EntryName"
+        // val __v = "EntryName"
         val valStmt = makeNode("valDecl")
         mapPut(valStmt, "name", "__v")
         val strLit = makeNode("stringLit")
@@ -3319,15 +3424,30 @@ fun compileEnumDecl(compiler: Map, decl: Map): Unit {
         mapPut(valStmt, "init", strLit)
         listAppend(stmts, valStmt)
 
-        // return EnumName($v)  — constructor call
-        val ctorCall = makeNode("call")
-        val calleeNode = makeNode("ident")
-        mapPut(calleeNode, "name", enumName)
-        mapPut(ctorCall, "callee", calleeNode)
+        // Build constructor args: __v, then payload params
         val argList = listCreate()
         val argVal = makeNode("ident")
         mapPut(argVal, "name", "__v")
         listAppend(argList, argVal)
+
+        // Add payload args (references to the init function's parameters)
+        if (variantParams != null) {
+            var ai: Int = 0
+            while (ai < listSize(variantParams)) {
+                val param = listGet(variantParams, ai)
+                val paramName = toString(mapGet(param, "name"))
+                val argRef = makeNode("ident")
+                mapPut(argRef, "name", paramName)
+                listAppend(argList, argRef)
+                ai = ai + 1
+            }
+        }
+
+        // return EnumName(__v, payload0, payload1, ...)
+        val ctorCall = makeNode("call")
+        val calleeNode = makeNode("ident")
+        mapPut(calleeNode, "name", enumName)
+        mapPut(ctorCall, "callee", calleeNode)
         mapPut(ctorCall, "args", argList)
 
         val retNode = makeNode("return")
@@ -3337,10 +3457,20 @@ fun compileEnumDecl(compiler: Map, decl: Map): Unit {
         val bodyBlock = makeNode("block")
         mapPut(bodyBlock, "stmts", stmts)
 
+        // Build init function with variant parameters
+        val initParams = listCreate()
+        if (variantParams != null) {
+            var pi: Int = 0
+            while (pi < listSize(variantParams)) {
+                listAppend(initParams, listGet(variantParams, pi))
+                pi = pi + 1
+            }
+        }
+
         val initDecl = mapCreate()
         mapPut(initDecl, "kind", "funDecl")
         mapPut(initDecl, "name", initName)
-        mapPut(initDecl, "params", listCreate())
+        mapPut(initDecl, "params", initParams)
         mapPut(initDecl, "body", bodyBlock)
         compileFunction(compiler, initDecl)
 
@@ -4263,7 +4393,7 @@ fun main(): Unit {
 
     if (listSize(args) < 2) {
         println("Usage: rockit compile <source.rok> [-o output] [--no-check] [--optimize] [--emit-llvm] [--lib-path <path>]")
-        println("       rockit build-native <source.rok> [-o output] [--no-check] [--optimize] [--runtime-path <path>] [--lib-path <path>]")
+        println("       rockit build-native <source.rok> [-o output] [--no-check] [--optimize] [--runtime-path <path>] [--lib-path <path>] [--safety <dal-a|dal-b|dal-c|dal-d|dal-e>]")
         println("       rockit repl")
         println("       rockit version")
         println("       rockit update [--check] [--channel <stable|beta|nightly>]")
@@ -4282,6 +4412,8 @@ fun main(): Unit {
     var noRuntime: Bool = false
     var doOptimize: Bool = false
     var emitLlvm: Bool = false
+    var safetyLevel: String = ""
+    var auditPath: String = ""
     val isBuildNative: Bool = command == "build-native"
     while (ai < listSize(args)) {
         val arg = toString(listGet(args, ai))
@@ -4308,10 +4440,20 @@ fun main(): Unit {
             emitLlvm = true
         } else if (arg == "--no-runtime") {
             noRuntime = true
+        } else if (arg == "--safety") {
+            if (ai + 1 < listSize(args)) {
+                ai = ai + 1
+                safetyLevel = toString(listGet(args, ai))
+            }
         } else if (arg == "--target-triple") {
             if (ai + 1 < listSize(args)) {
                 ai = ai + 1
                 targetTriple = toString(listGet(args, ai))
+            }
+        } else if (arg == "--audit") {
+            if (ai + 1 < listSize(args)) {
+                ai = ai + 1
+                auditPath = toString(listGet(args, ai))
             }
         } else {
             if (stringLength(outputFile) == 0) {
@@ -4396,6 +4538,11 @@ fun main(): Unit {
 
     // Compile
     val compiler = compileProgram(ast)
+    mapPut(compiler, "sourceFile", sourceFile)
+    mapPut(compiler, "dbgFuncIds", mapCreate())
+    mapPut(compiler, "dbgLocations", mapCreate())
+    mapPut(compiler, "dbgLocCache", mapCreate())
+    mapPut(compiler, "dbgNextId", 200)
     if (noRuntime) {
         mapPut(compiler, "noRuntime", true)
     }
@@ -4406,6 +4553,21 @@ fun main(): Unit {
     }
 
     val funcCount = listSize(mapGet(compiler, "functions"))
+
+    // DO-178C: Export audit report if --audit was specified
+    if (stringLength(auditPath) > 0) {
+        var auditJson: String = "{\n"
+        auditJson = stringConcat(auditJson, "  \"compilerVersion\": \"0.1.0-alpha\",\n")
+        auditJson = stringConcat(auditJson, stringConcat("  \"stage\": \"Stage 1\",\n"))
+        auditJson = stringConcat(auditJson, stringConcat("  \"sourceFile\": \"", stringConcat(sourceFile, "\",\n")))
+        auditJson = stringConcat(auditJson, stringConcat("  \"safetyLevel\": \"", stringConcat(if (stringLength(safetyLevel) > 0) { safetyLevel } else { "none" }, "\",\n")))
+        auditJson = stringConcat(auditJson, stringConcat("  \"functionCount\": ", stringConcat(toString(funcCount), ",\n")))
+        auditJson = stringConcat(auditJson, stringConcat("  \"noRuntime\": ", stringConcat(if (noRuntime) { "true" } else { "false" }, "\n")))
+        auditJson = stringConcat(auditJson, "}\n")
+        val auditBytes = stringToBytes(auditJson)
+        fileWriteBytes(auditPath, auditBytes)
+        println(stringConcat("Audit report: ", auditPath))
+    }
 
     if (isBuildNative) {
         // build-native: .rok → LLVM IR → clang → native binary
@@ -4422,7 +4584,7 @@ fun main(): Unit {
         }
 
         // -Xclang -opaque-pointers: needed for clang < 16 (harmless on 16+, -w suppresses warnings on 17+)
-        val clangBase: String = "clang -Xclang -opaque-pointers -O1 -w "
+        val clangBase: String = "clang -Xclang -opaque-pointers -O2 -w "
         var clangCmd: String = ""
         if (noRuntime) {
             // Freestanding: compile LLVM IR without runtime
@@ -4444,23 +4606,16 @@ fun main(): Unit {
             if (endsWith(runtimePath, ".c")) {
                 // Backward compat: C runtime needs -I for the header directory
                 val runtimeDir = dirName(runtimePath)
-                clangCmd = stringConcat(clangBase, stringConcat("-I ", stringConcat(runtimeDir, stringConcat(" ", stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -o ", outputFile))))))))
+                clangCmd = stringConcat(clangBase, stringConcat("-I ", stringConcat(runtimeDir, stringConcat(" ", stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lssl -lcrypto -L /opt/homebrew/opt/openssl@3/lib -o ", outputFile))))))))
                 if (toString(platformOS()) == "linux") {
-                    clangCmd = stringConcat(clangBase, stringConcat("-I ", stringConcat(runtimeDir, stringConcat(" ", stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lm -o ", outputFile))))))))
+                    clangCmd = stringConcat(clangBase, stringConcat("-I ", stringConcat(runtimeDir, stringConcat(" ", stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lssl -lcrypto -lm -o ", outputFile))))))))
                 }
             } else {
                 // Pre-built .o runtime — link directly, no -I needed
-                clangCmd = stringConcat(clangBase, stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -o ", outputFile)))))
+                clangCmd = stringConcat(clangBase, stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lssl -lcrypto -L /opt/homebrew/opt/openssl@3/lib -o ", outputFile)))))
                 if (toString(platformOS()) == "linux") {
-                    clangCmd = stringConcat(clangBase, stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lm -o ", outputFile)))))
+                    clangCmd = stringConcat(clangBase, stringConcat(llFile, stringConcat(" ", stringConcat(runtimePath, stringConcat(" -lssl -lcrypto -lm -o ", outputFile)))))
                 }
-            }
-            // OpenSSL link flags (C runtime uses OpenSSL for TLS/crypto)
-            val osName: String = toString(platformOS())
-            if (osName == "macos") {
-                clangCmd = stringConcat(clangCmd, " -lssl -lcrypto -L/opt/homebrew/opt/openssl@3/lib")
-            } else {
-                clangCmd = stringConcat(clangCmd, " -lssl -lcrypto")
             }
         }
         val exitCode = systemExec(clangCmd)

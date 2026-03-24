@@ -12746,8 +12746,9 @@ fun main(): Unit {
             }
         }
 
-        // Build native
-        var buildCmd: String = "rockit build-native " + sourceFile + " -o " + tmpBin
+        // Build native using our own binary path
+        val selfPath = executablePath()
+        var buildCmd: String = selfPath + " build-native " + sourceFile + " -o " + tmpBin
         // Pass through --runtime-path and --lib-path if provided
         var bai: Int = 2
         while (bai < listSize(args)) {
