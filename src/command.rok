@@ -12668,6 +12668,9 @@ fun main(): Unit {
 
     val command = toString(listGet(args, 0))
 
+    // Startup update check (every 24h, non-blocking)
+    updateBackgroundNotice(ROCKIT_VERSION)
+
     // REPL mode
     if (command == "repl") {
         replMain()
