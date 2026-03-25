@@ -4216,11 +4216,20 @@ fun findRuntimePath(sourceDir: String): String {
     val runtimeFile = "rockit_runtime.o"
     val sep = pathSep()
 
+    // 0. ROCKIT_RUNTIME_DIR env var (direct path to directory containing runtime)
+    val rtDir = toString(getEnv("ROCKIT_RUNTIME_DIR"))
+    if (stringLength(rtDir) > 0) {
+        val candidate = stringConcat(rtDir, stringConcat(sep, runtimeFile))
+        if (fileExists(candidate)) { return candidate }
+    }
+
     // 1. ROCKIT_HOME env var
     val home = toString(getEnv("ROCKIT_HOME"))
     if (stringLength(home) > 0) {
         val candidate = stringConcat(home, stringConcat(sep, runtimeFile))
         if (fileExists(candidate)) { return candidate }
+        val candidate1b = stringConcat(home, stringConcat(sep, stringConcat("share", stringConcat(sep, stringConcat("rockit", stringConcat(sep, runtimeFile))))))
+        if (fileExists(candidate1b)) { return candidate1b }
     }
 
     // 2. Relative to executable: same directory
@@ -4261,6 +4270,14 @@ fun findRuntimePath(sourceDir: String): String {
     } else {
         if (fileExists("/usr/local/share/rockit/rockit_runtime.o")) {
             return "/usr/local/share/rockit/rockit_runtime.o"
+        }
+        // ~/.local/share/rockit/
+        val userHome = toString(getEnv("HOME"))
+        if (stringLength(userHome) > 0) {
+            val homeCandidate = userHome + "/.local/share/rockit/rockit_runtime.o"
+            if (fileExists(homeCandidate)) { return homeCandidate }
+            val homeCandidate2 = userHome + "/.rockit/rockit_runtime.o"
+            if (fileExists(homeCandidate2)) { return homeCandidate2 }
         }
     }
 
