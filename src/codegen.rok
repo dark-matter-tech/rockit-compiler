@@ -4294,8 +4294,7 @@ fun main(): Unit {
         }
         val sourceFile = toString(listGet(args, 1))
         val tmpBin = "/tmp/rockit_run_tmp"
-        val selfPath = executablePath()
-        var buildCmd: String = selfPath + " build-native " + sourceFile + " -o " + tmpBin
+        var buildCmd: String = "rockit build-native " + sourceFile + " -o " + tmpBin
         var bai: Int = 2
         while (bai < listSize(args)) {
             val ba = toString(listGet(args, bai))
