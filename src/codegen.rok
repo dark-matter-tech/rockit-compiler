@@ -4286,9 +4286,6 @@ fun main(): Unit {
 
     val command = toString(listGet(args, 0))
 
-    // Startup update check (every 24h)
-    updateBackgroundNotice(ROCKIT_VERSION)
-
     // Run: build-native to temp, execute, clean up
     if (command == "run" || command == "run-native") {
         if (listSize(args) < 2) {
@@ -4296,7 +4293,7 @@ fun main(): Unit {
             return
         }
         val sourceFile = toString(listGet(args, 1))
-        val tmpBin = "/tmp/rockit_run_" + toString(currentTimeMillis())
+        val tmpBin = "/tmp/rockit_run_tmp"
         val selfPath = executablePath()
         var buildCmd: String = selfPath + " build-native " + sourceFile + " -o " + tmpBin
         var bai: Int = 2
